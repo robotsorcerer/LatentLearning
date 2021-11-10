@@ -25,8 +25,11 @@ from det_tabular_mdp_builder import DetTabularMDPBuilder
 from value_iteration import ValueIteration
 
 
+from utils import Logger
 
-os.environ["WANDB_MODE"] = "offline"
+
+
+
 
 parser = get_parser()
 
@@ -45,7 +48,7 @@ parser.add_argument('-c','--cols', type=int, default=6,
 parser.add_argument('-w', '--walls', type=str, default='empty', choices=['empty', 'maze', 'spiral', 'loop'],
                     help='The wall configuration mode of gridworld')
 
-parser.add_argument('-l','--latent_dims', type=int, default=2,
+parser.add_argument('-l','--latent_dims', type=int, default=256,
                     help='Number of latent dimensions to use for representation')
 
 parser.add_argument('--L_inv', type=float, default=1.0,
@@ -93,16 +96,25 @@ parser.add_argument('--rearrange_xy', action='store_true',
 # VQ Discrete Layer
 parser.add_argument('--use_vq', action='store_true',
                     help='Use VQ layer after the phi network')
+
 parser.add_argument('--groups', type=int, default=2,
                     help='No. of groups to use for VQ-VAE')
+
+parser.add_argument('--n_embed', type=int, default=10,
+                    help='No. of embeddings')
 
 # Clustering layer
 parser.add_argument('--use_proto', action='store_true',
                     help='Use prototypes-based discritization after the phi network')
 
 
-parser.add_argument('--n_embed', type=int, default=10,
-                    help='No. of embeddings')
+
+
+
+parser.add_argument("--use_logger", action="store_true", default=False, help='whether to use logging or not')
+
+
+
 
 # yapf: enable
 if 'ipykernel' in sys.argv[0]:
@@ -146,15 +158,32 @@ seeding.seed(args.seed)
 #% ------------------ Define MDP ------------------
 if args.walls == 'maze':
     env = MazeWorld.load_maze(rows=args.rows, cols=args.cols, seed=args.seed)
+    env_name = 'mazeworld'
 elif args.walls == 'spiral':
     env = SpiralWorld(rows=args.rows, cols=args.cols)
+    env_name = 'spiralworld'
 elif args.walls == 'loop':
     env = LoopWorld(rows=args.rows, cols=args.cols)
+    env_name = 'loopworld'
 else:
     env = GridWorld(rows=args.rows, cols=args.cols)
+    env_name = 'gridworld'
 # env = RingWorld(2,4)
 # env = TestWorld()
 # env.add_random_walls(10)
+
+
+if args.use_logger:
+    file_name = "%s_%s_%s" % (args.type, env_name, str(args.seed))
+
+    logger = Logger(args, experiment_name=args.tag, environment_name=env_name, type_decoder=args.type,   groups = 'groups_' + str(args.groups) + '_embed_' + str(args.n_embed), folder="./results/")
+    logger.save_args(args)
+
+    print('Saving to', logger.save_folder)
+else:
+    logger = None
+
+
 
 # cmap = 'Set3'
 cmap = None
@@ -347,6 +376,11 @@ get_next_batch = (
 
 
 
+type1_evaluations = []
+
+type2_evaluations = []
+
+
 def test_rep(fnet, step,  ts0, ts1):
     with torch.no_grad():
         fnet.eval()
@@ -388,6 +422,16 @@ def test_rep(fnet, step,  ts0, ts1):
                 zq_loss = zq_loss.numpy().tolist()
 
                 type1_err, type2_err = get_eval_error(z0, z1, ts0, ts1)
+
+
+                type1_evaluations.append(type1_err)
+                type2_evaluations.append(type2_err)
+
+                if args.use_logger:
+                    logger.record_type1_errors(type1_evaluations)
+                    logger.record_type2_errors(type2_evaluations)
+                    logger.save()
+
             # elif fnet.use_proto:
             #     z0, zq_loss0, _ = fnet.vq_layer(z0)
             #     z1, zq_loss1, _ = fnet.vq_layer(z1)
@@ -406,6 +450,9 @@ def test_rep(fnet, step,  ts0, ts1):
                 'type1_error': type1_err,
                 'type2_error': type2_err
             }
+
+
+
             # wandb.log(loss_info)
             # yapf: enable
 
@@ -442,11 +489,12 @@ def get_eval_error (z0, z1, s0, s1):
         Z_comp = Z[0] * Z[1] 
 
 
-        S = s0[i] != s1[i]
+        S = s0[i] == s1[i]
         S = S.long()
         S_comp = S[0] * S[1]
 
         if (1-Z_comp) and S_comp :
+            #Error 2: Did not merge states which should be merged
             type2_err += 1
 
         if Z_comp and (1-S_comp):

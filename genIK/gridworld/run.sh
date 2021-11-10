@@ -4,6 +4,42 @@
 
 
 
+
+python train_rep.py --tag empty_genIK_vq --walls empty --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 2 --n_embed 10
+
+python train_rep.py --tag empty_genIK_vq --walls empty --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 2 --n_embed 30 
+
+python train_rep.py --tag empty_genIK_vq --walls empty --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 2 --n_embed 50 
+
+python train_rep.py --tag empty_genIK_vq --walls empty --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 2 --n_embed 70
+
+
+
+
+# python train_rep.py --tag spiral_genIK_vq --walls spiral --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 1 --n_embed 10 --latent_dims 128
+
+# python train_rep.py --tag spiral_genIK_vq --walls spiral --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 1 --n_embed 30 --latent_dims 128
+
+# python train_rep.py --tag spiral_genIK_vq --walls spiral --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 1 --n_embed 50 --latent_dims 128
+
+# python train_rep.py --tag spiral_genIK_vq --walls spiral --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 1 --n_embed 70 --latent_dims 128
+
+
+
+# python train_rep.py --tag spiral_genIK_vq --walls spiral --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 1 --n_embed 10 --n_samples 2000 --n_updates 2000
+
+# python train_rep.py --tag spiral_genIK_vq --walls spiral --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 1 --n_embed 30 --n_samples 2000 --n_updates 2000
+
+# python train_rep.py --tag spiral_genIK_vq --walls spiral --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 1 --n_embed 50 --n_samples 2000 --n_updates 2000
+
+# python train_rep.py --tag spiral_genIK_vq --walls spiral --type genIK --use_vq --seed 1 --L_coinv 1 --use_logger --groups 1 --n_embed 70 --n_samples 2000 --n_updates 2000
+
+
+
+
+
+
+
 # ## EMPTY MAZES
 # python train_rep.py --tag empty_markov --walls empty --type markov --seed 1 --save --video
 # python train_rep.py --tag empty_markov_vq --walls empty --type markov --use_vq --seed 1 --save --video 
@@ -37,17 +73,17 @@
 
 
 
-### More runs : 
+# ### More runs : 
 
-## Just inverse prediction
-python train_rep.py --tag empty_genIK_inv --walls empty --type genIK --seed 1 --save --video
-python train_rep.py --tag empty_genIK_inv_vq --walls empty --type genIK --use_vq --seed 1 --save --video
+# ## Just inverse prediction
+# python train_rep.py --tag empty_genIK_inv --walls empty --type genIK --seed 1 --save --video
+# python train_rep.py --tag empty_genIK_inv_vq --walls empty --type genIK --use_vq --seed 1 --save --video
 
-python train_rep.py --tag spiral_genIK_inv --walls spiral --type genIK --seed 1 --save --video
-python train_rep.py --tag spiral_genIK_inv_vq --walls spiral --type genIK --use_vq --seed 1 --save --video
+# python train_rep.py --tag spiral_genIK_inv --walls spiral --type genIK --seed 1 --save --video
+# python train_rep.py --tag spiral_genIK_inv_vq --walls spiral --type genIK --use_vq --seed 1 --save --video
 
 
-python train_rep.py --tag maze_genIK_inv --walls maze --type genIK --seed 1 --save --video
-python train_rep.py --tag maze_genIK_inv_vq --walls maze --type genIK --use_vq --seed 1 --save --video
+# python train_rep.py --tag maze_genIK_inv --walls maze --type genIK --seed 1 --save --video
+# python train_rep.py --tag maze_genIK_inv_vq --walls maze --type genIK --use_vq --seed 1 --save --video
 
 
