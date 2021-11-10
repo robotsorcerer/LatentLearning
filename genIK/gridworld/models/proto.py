@@ -8,8 +8,6 @@ import math
 
 import models.proto_utils as utils
 from copy import deepcopy
-# import hydra
-# import kornia
 
 
 class Projector(nn.Module):
@@ -63,8 +61,9 @@ class Proto(nn.Module):
                                        nn.Linear(pred_dim, proj_dim))
         self.predictor_target = deepcopy(self.predictor)
 
-        self.projector = Projector(pred_dim, proj_dim)
-        self.projector.apply(utils.weight_init)
+        # TODO : if we want to add a projector it should be in Phi net (only if use_proto is True)
+        # self.projector = Projector(pred_dim, proj_dim)
+        # self.projector.apply(utils.weight_init)
 
 
         # self.encoder = Encoder(obs_shape).to(device)
@@ -72,7 +71,7 @@ class Proto(nn.Module):
 
         self.num_iters = 3
         self.temp = T
-        self.topk = topk
+        self.topk = topk  # not needed for us
         self.num_protos = num_protos
 
         self.protos = nn.Linear(proj_dim, num_protos, bias=False)
@@ -89,13 +88,11 @@ class Proto(nn.Module):
         C = F.normalize(C, dim=1, p=2)
         self.protos.weight.data.copy_(C)
 
-
-
-    def forward(self, obs, next_obs):
+    def forward(self, s, t):
         # normalize prototypes
         self.normalize_protos()
         # s = self.encoder(obs)
-        s = self.predictor(obs)
+        s = self.predictor(s)
         # s = self.projector(s)
         s = F.normalize(s, dim=1, p=2)
 
@@ -105,13 +102,18 @@ class Proto(nn.Module):
 
         with torch.no_grad():
             # t = self.encoder_target(next_obs)
-            t = self.predictor_target(next_obs)
+            # t = self.predictor_target(next_obs) # this should be the target of predictor(s)
             t = F.normalize(t, dim=1, p=2)
             scores_t = self.protos(t)
             q_t = self.sinkhorn(scores_t)
+            # get the protos for s and t
+            _, s_proto_idx = torch.max(scores_s, dim=1)
+            _, t_proto_idx = torch.max(scores_t, dim=1)
+            z_s = self.protos.weight.data[s_proto_idx]
+            z_t = self.protos.weight.data[t_proto_idx]
 
         loss = -(q_t * log_p_s).sum(dim=1).mean()
-        return loss
+        return z_s, z_t, loss
 
 
 
@@ -138,6 +140,12 @@ class Proto(nn.Module):
         Q = Q / Q.sum(dim=0, keepdim=True)
         return Q.T
 
+    def get_protos(self, phi, phi_target, obs, next_obs):
+        z = phi(obs)
+        with torch.no_grad():
+            next_z = phi_target(next_obs)
+        loss = self.forward(z, next_z)
+        return loss
 
 # class ProtoAgent(object):
 #     def __init__(self, obs_shape, action_shape, action_range, device,

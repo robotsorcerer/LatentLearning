@@ -2,10 +2,14 @@ import random
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvas
+from PIL import Image, ImageDraw
 
 from . import grid
 from .objects.agent import Agent
 from .objects.depot import Depot
+
+from .exo_noise_circle import Circle
 
 class GridWorld(grid.BaseGrid):
     def __init__(self, *args, **kwargs):
@@ -15,6 +19,25 @@ class GridWorld(grid.BaseGrid):
         self.action_map = grid.directions
         self.agent.position = np.asarray((0, 0), dtype=int)
         self.goal = None
+        self.exo_noise = False
+
+    def set_exo_noise_config(self, config):
+        self.exo_noise = True
+        self.circles = None
+        self.colors = ["#" + ''.join([random.choice('0123456789ABCDEF') for _ in range(6)]) for _ in range(8)]
+        self.circle_width = config["circle_width"]
+        self.circle_motion = config["circle_motion"]
+        self.num_circles = config["num_circles"]
+        # # Generate circles
+        self.circles = []
+        width, height = self._cols, self._rows
+        scale_circ = 80/max(width,height)
+        for _ in range(0, self.num_circles):
+            # Generate random four points
+            coord = [random.randint(0, width // 2)*scale_circ, random.randint(0, height // 2)*scale_circ,
+                     random.randint(width // 2, width)*scale_circ, random.randint(height // 2, height)*scale_circ]
+            color = random.choice(self.colors)
+            self.circles.append(Circle(coord, color, self.circle_width))
 
     def reset_agent(self, pos=None):
         if pos:
@@ -63,7 +86,52 @@ class GridWorld(grid.BaseGrid):
             self.agent.plot(ax)
         if self.goal:
             self.goal.plot(ax)
+        if self.exo_noise:
+            ax.figure.set_dpi(80/max(self._rows,self._cols)) # add scale ?
+            ax.figure.tight_layout(pad=0)
+            canvas = FigureCanvas(ax.figure)
+            canvas.draw()
+            buf = canvas.tostring_rgb()
+            w, h = canvas.get_width_height()
+            X = np.frombuffer(buf, dtype=np.uint8).reshape(h, w, 3).copy()
+            img = self.generate_image(X)
+            return img
         return ax
+    
+    def generate_image(self, img):
+
+        width, height = img.shape[0], img.shape[1]
+        image = Image.new('RGB', (width, height))
+        draw = ImageDraw.Draw(image)
+
+        for circle in self.circles:
+            draw.ellipse(circle.coord, outline=circle.color, width=circle.width)
+        exo_im = np.array(image).astype(np.uint8)
+        # make bgk white
+        exo_im = np.where(exo_im==0, 255, exo_im)
+
+        img_shape = img.shape
+        exo_im = exo_im.reshape((-1, 3))
+        img = img.reshape((-1, 3))
+        obs_max = img.max(1)
+        bg_pixel_ix = np.argwhere(obs_max > 250)  # flattened (x, y) position where pixels are white in color
+        values = np.squeeze(exo_im[bg_pixel_ix])
+        np.put_along_axis(img, bg_pixel_ix, values, axis=0)
+        img = img.reshape(img_shape)
+
+        # import matplotlib.pyplot as plt
+        # plt.imshow(img)
+        # plt.axis('off')
+        # plt.tight_layout()
+        # self.img_ctr += 1
+        # plt.savefig("./visual_gridworld_%d.pdf" % self.img_ctr, bbox_inches='tight')
+        # if self.img_ctr == 2:
+        #     exit(0)
+
+        img = img / 255.0
+        # img = color.rgb2gray(img / 255.0)
+
+        return img
 
 class TestWorld(GridWorld):
     def __init__(self):
