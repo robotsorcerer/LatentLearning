@@ -115,9 +115,6 @@ parser.add_argument("--use_rgb", action="store_true", default=False, help='wheth
 
 parser.add_argument("--folder", type=str, default='./results/')
 
-
-
-
 # yapf: enable
 if 'ipykernel' in sys.argv[0]:
     arglist = [
@@ -213,16 +210,6 @@ actions = []
 current_state = env.get_state()
 model.add_state(state=tuple((0,0)), timestep=0)
 
-# config = {
-#           "num_circles": 8,
-#           "circle_width": 6,
-#           "circle_motion": 0.05
-# }
-# env.set_exo_noise_config(config)
-# import ipdb; ipdb.set_trace()
-# im = env.plot()
-# plt.imshow(im)
-# plt.show()
 
 for step in range(horizon):
     a = np.random.choice(env.actions)
@@ -239,7 +226,6 @@ for step in range(horizon):
 # q_val = value_it.do_value_iteration(tabular_mdp=model, min_reward_val=0.0)
 # expected_ret = q_val[(0, (0, 0))].max()
 
-
 states = np.stack(states)
 s0 = np.asarray(states[:-1, :])
 c0 = s0[:, 0] * env._cols + s0[:, 1]
@@ -251,15 +237,9 @@ all_states = np.asarray(list(set(unique_states)))
 
 MI_max = MI(s0, s0)
 
-# ax = env.plot()
-# xx = s0[:, 1] + 0.5
-# yy = s0[:, 0] + 0.5
-# ax.scatter(xx, yy, c=c0)
-
 # Confirm that we're covering the state space relatively evenly
 if args.use_logger:
     plot_state_visitation(states[:,0], states[:,1], logger.save_folder, bins=6)
-
 
 
 #% ------------------ Define sensor ------------------
@@ -288,6 +268,8 @@ if args.use_rgb :
     x0 = im0
     x1 = im1
 
+## 1 x 18 x18 
+## 1 x 36 x 18
 else:
     x0 = ob0
     x1 = ob1
@@ -478,6 +460,27 @@ def test_rep(fnet, step,  ts0, ts1):
 
 
 
+## Codebook size of 10 
+## for every state (position, direction) : you are representing it with 10 discrete values
+
+# Alex Lamb12:49 PM
+#         ind_last = ind_last.flatten()
+#         print(ind_last)
+#         print(y1)
+
+#         for j in range(0,ind_last.max().item() + 1):
+#             print(j, y1[ind_last==j])
+# Alex Lamb12:50 PM
+# code1 - true1, true1, true1
+# code2 - true2, true2, true2
+# code3 - true1, true1, true1
+# You12:51 PM
+# "code1 - true1, true1, true1" 
+
+# Alex Lamb12:52 PM
+# code1 - true9, true9, true9
+# code2 - true13, true13, true13
+
 
 def get_eval_error (z0, z1, s0, s1):
     ## Type 1: DSM (different states merged)
@@ -508,6 +511,8 @@ def get_eval_error (z0, z1, s0, s1):
     type2_err = type2_err/z0.shape[0] * 100
 
     return type1_err, type2_err
+
+
 
 #% ------------------ Run Experiment ------------------
 

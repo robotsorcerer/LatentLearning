@@ -97,9 +97,11 @@ class Quantize(nn.Module):
                 print('test ind lst', sorted(list(set(ind_lst))))
 
 
-        z_q_codebooks = self.out_proj(z_q)
+        z_q_codebooks = self.out_proj(z_q) 
+        # z_q = self.out_proj(z_q) 
+        
         # return z_q, diff, ind
-        return z_q, diff, z_q_codebooks
+        return z_q, diff, ind
 
     def embed_code(self, embed_id):
         return F.embedding(embed_id, self.embed.weight)
