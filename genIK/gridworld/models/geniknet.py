@@ -18,7 +18,7 @@ class GenIKNet(Network):
     def __init__(self,
                  n_actions,
                  input_shape=2,
-                 n_latent_dims=4,
+                 n_latent_dims=128,
                  n_hidden_layers=1,
                  n_units_per_layer=32,
                  lr=0.001,
@@ -65,6 +65,13 @@ class GenIKNet(Network):
                                 n_latent_dims=n_latent_dims,
                                 n_units_per_layer=n_units_per_layer,
                                 n_hidden_layers=n_hidden_layers)
+
+
+        self.multi_step_inv_model = InvNet(n_actions=n_actions,
+                                n_latent_dims=n_latent_dims,
+                                n_units_per_layer=n_units_per_layer,
+                                n_hidden_layers=n_hidden_layers)
+
         self.inv_discriminator = InvDiscriminator(n_actions=n_actions,
                                                   n_latent_dims=n_latent_dims,
                                                   n_units_per_layer=n_units_per_layer,
@@ -83,6 +90,14 @@ class GenIKNet(Network):
             return torch.tensor(0.0)
         a_hat = self.inv_model(z0, z1)
         return self.cross_entropy(input=a_hat, target=a)
+
+    def multi_step_inverse_dynamics(self, z0, z1, a):
+        if self.coefs['L_genik'] == 0.0:
+            return torch.tensor(0.0)
+
+        a_hat = self.multi_step_inv_model(z0, z1)
+        return self.cross_entropy(input=a_hat, target=a)
+
 
     def contrastive_inverse_loss(self, z0, z1, a):
         if self.coefs['L_coinv'] == 0.0:
@@ -119,9 +134,12 @@ class GenIKNet(Network):
 
     def compute_loss(self, z0, z1, a, d):
         loss = self.coefs['L_coinv'] * self.contrastive_inverse_loss(z0, z1, a)  # zero
+        loss = self.coefs['L_genik'] * self.multi_step_inverse_dynamics (z0, z1, a) # multi-step inverse dynamics
         loss += self.coefs['L_inv'] * self.inverse_loss(z0, z1, a)  # inverse model: 1
 
         return loss
+
+
 
     def train_batch(self, x0, x1, a, d):
         self.train()
@@ -134,13 +152,12 @@ class GenIKNet(Network):
             z1, zq_loss1, z_discrete1 = self.vq_layer(z1)
             zq_loss = zq_loss0 + zq_loss1
 
-            
         elif self.use_proto:
             # TODO: for now no visual data augmentation is used (proto-rl does), can easily add it
             z0, z1, zq_loss = self.get_protos(x0, x1)
         else:
             zq_loss = 0
-        # z1_hat = self.fwd_model(z0, a)
+
         loss = self.compute_loss(z0, z1, a, d)
         loss += zq_loss
         loss.backward()

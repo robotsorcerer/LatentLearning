@@ -13,7 +13,7 @@ import os
 
 sns.set_context("paper", font_scale=2.0)
 
-def main_plot(list_of_data, smoothing_window=5,
+def main_plot(list_of_data, smoothing_window=20,
               file_name='figure', saving_folder='', labels=None, title="Reward Plot",
               x_label='Iterations',
               y_label='Rewards'):
@@ -24,8 +24,8 @@ def main_plot(list_of_data, smoothing_window=5,
         label.set_fontname('Arial')
         # label.set_fontsize(28)
     plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
-    ax.xaxis.get_offset_text().set_fontsize(28)
-    axis_font = {'fontname':'Arial', 'size':'28'}
+    ax.xaxis.get_offset_text().set_fontsize(20)
+    axis_font = {'fontname':'Arial', 'size':'20'}
 
     # get a list of colors here.
     colors = sns.color_palette('colorblind', n_colors=len(list_of_data))
@@ -33,7 +33,7 @@ def main_plot(list_of_data, smoothing_window=5,
 
     for data, label, color in zip(list_of_data, labels, colors):
         episodes = np.arange(data.shape[0])
-        episodes = episodes
+        episodes = episodes * 1000
         smoothed_data = pd.DataFrame(data).rolling(smoothing_window, min_periods=smoothing_window).mean()
 
         rewards_smoothed.append(smoothed_data)
@@ -88,8 +88,9 @@ def main():
     parser.add_argument('--title', default='Reward Plot')
     parser.add_argument('--xlabel', default='Episodes')
     parser.add_argument('--ylabel', default='Rewards')
-    parser.add_argument('--smoothing_window', default=5, type=int)
+    parser.add_argument('--smoothing_window', default=20, type=int)
     parser.add_argument('--saving_folder', default='plot_analysis', type=str)
+    parser.add_argument('--file_name', default='Result Plot')
 
     args = parser.parse_args()
 
@@ -108,7 +109,7 @@ def main():
 
     main_plot(datas,
               smoothing_window=args.smoothing_window,
-              file_name=args.title.replace(' ', ''),
+              file_name=args.file_name.replace(' ', ''),
               saving_folder=args.saving_folder,
               labels=args.labels,
               title=args.title,

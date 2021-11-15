@@ -4,6 +4,9 @@ import os
 import time
 import json
 import torch
+
+import numpy as np
+import matplotlib.pyplot as plt
 # Code based on: 
 # https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
 
@@ -11,7 +14,7 @@ import torch
 create_folder = lambda f: [ os.makedirs(f) if not os.path.exists(f) else False ]
 
 class Logger(object):
-      def __init__(self, args, experiment_name='', environment_name='', type_decoder='', groups = '', folder='./results'):
+      def __init__(self, args, experiment_name='', environment_name='', type_decoder='', obs_type = '', use_exo ='', groups = '', folder='./results'):
             """
             Original: Original implementation of the algorithms
             HDR: Used Qhat
@@ -21,7 +24,7 @@ class Logger(object):
             """
             self.rewards = []
               
-            self.save_folder = os.path.join(folder, experiment_name, type_decoder, environment_name, groups, time.strftime('%y-%m-%d-%H-%M-%s'))
+            self.save_folder = os.path.join(folder, experiment_name, type_decoder, obs_type, use_exo, environment_name, groups, time.strftime('%y-%m-%d-%H-%M-%s'))
 
             create_folder(self.save_folder)
             self.returns_critic_loss = []
@@ -82,3 +85,24 @@ class Logger(object):
             """
             with open(os.path.join(self.save_folder, 'params.json'), 'w') as f:
                   json.dump(dict(args._get_kwargs()), f)
+
+
+
+def plot_state_visitation(x, y, save_folder, bins):
+      # np.histogram2d(states[:,0], states[:,1], bins=6)
+
+      gridx = np.linspace(min(x),max(x),bins)
+      gridy = np.linspace(min(y),max(y),bins)
+
+      H, xedges, yedges = np.histogram2d(x, y, bins=[gridx, gridy])
+      plt.figure()
+      plt.plot(x, y, 'ro')
+      plt.grid(True)
+
+
+      myextent  =[xedges[0],xedges[-1],yedges[0],yedges[-1]]
+      plt.imshow(H.T,origin='low',extent=myextent,interpolation='nearest',aspect='auto')
+      plt.plot(x,y,'ro')
+      plt.colorbar()
+      plt.savefig(save_folder + '/state_visitation.png')
+
