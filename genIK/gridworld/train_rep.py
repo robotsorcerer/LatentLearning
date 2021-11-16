@@ -393,7 +393,7 @@ get_next_batch = (lambda: get_batch(   x0[:n_samples // 2, :],   x1[:n_samples /
 type1_evaluations = []
 type2_evaluations = []
 
-def test_rep(fnet, step,  ts0, ts1):
+def test_rep(fnet, step,  test_s0, test_s1):
     with torch.no_grad():
         fnet.eval()
         if args.type =='genIK':
@@ -408,7 +408,44 @@ def test_rep(fnet, step,  ts0, ts1):
                 zq_loss = zq_loss.numpy().tolist()
 
                 # type1_err, type2_err = get_eval_error(z0, z1, ts0, ts1)
-                type1_err, type2_err = get_eval_error(z_discrete0, z_discrete1, ts0, ts1)
+                type1_err, type2_err = get_eval_error(z_discrete0, z_discrete1, test_s0, test_s1)
+
+
+                ts0 = ts0[0:z_discrete1.shape[0], :]
+                ind_last = z_discrete0.flatten()
+
+                import ipdb; ipdb.set_trace()
+
+                print(ind_last)
+                print (ts0)
+
+                for j in range(0, ind_last.max().item() + 1):
+                    print (j, ts0[ind_last==j])
+
+
+
+
+                # Alex Lamb12:49 PM
+                #         ind_last = ind_last.flatten()
+                #         print(ind_last)
+                #         print(y1)
+
+                #         for j in range(0,ind_last.max().item() + 1):
+                #             print(j, y1[ind_last==j])
+                # Alex Lamb12:50 PM
+                # code1 - true1, true1, true1
+                # code2 - true2, true2, true2
+                # code3 - true1, true1, true1
+                # You12:51 PM
+                # "code1 - true1, true1, true1" 
+
+                # Alex Lamb12:52 PM
+                # code1 - true9, true9, true9
+                # code2 - true13, true13, true13
+
+
+
+                import ipdb; ipdb.set_trace()
 
                 type1_evaluations.append(type1_err)
                 type2_evaluations.append(type2_err)
@@ -462,24 +499,6 @@ def test_rep(fnet, step,  ts0, ts1):
 
 ## Codebook size of 10 
 ## for every state (position, direction) : you are representing it with 10 discrete values
-
-# Alex Lamb12:49 PM
-#         ind_last = ind_last.flatten()
-#         print(ind_last)
-#         print(y1)
-
-#         for j in range(0,ind_last.max().item() + 1):
-#             print(j, y1[ind_last==j])
-# Alex Lamb12:50 PM
-# code1 - true1, true1, true1
-# code2 - true2, true2, true2
-# code3 - true1, true1, true1
-# You12:51 PM
-# "code1 - true1, true1, true1" 
-
-# Alex Lamb12:52 PM
-# code1 - true9, true9, true9
-# code2 - true13, true13, true13
 
 
 def get_eval_error (z0, z1, s0, s1):
@@ -540,7 +559,7 @@ for frame_idx in tqdm(range(n_frames + 1)):
         fnet.use_proto = args.use_proto
         fnet.train_batch(tx0, tx1, ta, idx)
 
-    test_results, step, type1_err, type2_err, z_discrete0, z_discrete1 = test_rep(fnet, frame_idx * n_updates_per_frame,  ts0, ts1)
+    test_results, step, type1_err, type2_err, z_discrete0, z_discrete1 = test_rep(fnet, frame_idx * n_updates_per_frame,  test_s0, test_s1)
 
 
     if args.video:
