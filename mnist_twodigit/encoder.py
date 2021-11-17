@@ -8,9 +8,9 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        self.enc = nn.Sequential(nn.Linear(3*32*64,512), nn.LeakyReLU(), nn.Linear(512,512), nn.LeakyReLU(), nn.Linear(512, 256))
+        self.enc = nn.Sequential(nn.Linear(3*32*64,512), nn.LeakyReLU(), nn.Linear(512,512), nn.LeakyReLU(), nn.Linear(512, 4))
 
-        self.q = Quantize(256, 32, 1)
+        self.q = Quantize(4, 100, 1)
 
     #x is (bs, 3*32*64).  Turn into z of size (bs, 256).  
     def forward(self, x, do_quantize): 
@@ -38,7 +38,7 @@ class Classifier(nn.Module):
 
         self.enc = Encoder()
 
-        self.out = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3))
+        self.out = nn.Sequential(nn.Linear(4*2, 512), nn.LeakyReLU(), nn.Linear(512, 3))
 
     #s is of size (bs, 256).  Turn into a of size (bs,3).  
     def forward(self, x, x_next, do_quantize):

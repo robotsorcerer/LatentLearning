@@ -24,34 +24,7 @@ import numpy as np
 from torchvision.utils import save_image
 from encoder import Classifier
 
-bs = 256
-
-train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
-                                                         download=True,
-                                                          train=True,
-                                                          transform=transforms.Compose([
-                                                              transforms.Resize((32,32)),
-                                                              transforms.ToTensor(), # first, convert image to PyTorch tensor
-                                                          ])),
-                                           batch_size=bs,
-                                            drop_last=True,
-                                           shuffle=True)
-
-
-
-#def colorize(x): 
-#    x = x.repeat(1,3,1,1)
-#    bs = x.shape[0]
- 
-#    c = torch.rand(bs,3,1,1)
-
-#    x *= c
-
-#    return x, c
-
-#def transition(x,y1,y2,c1,c2,a1,a2):
-
-#Given (cat(x1,x2), cat(x1,x2)_ --> classify a.  ).  
+from env import Environment, State
 
 def transition(x,y,y_):
     x_lst = []
@@ -73,6 +46,45 @@ ce = nn.CrossEntropyLoss()
 
 opt = torch.optim.Adam(net.parameters(), lr=0.0001)
 
+'''
+For each iteration take one step in the environment given the current state.  Keep a replay buffer of all states seen so far.  
+Re-encode states to discrete codes.  Record count for each discrete code.  
+
+1.  Take K random steps in environment on each iteration and record state.  Add to buffer.  
+2.  
+
+'''
+
+sbuffer = []
+steps_per_iter = 100
+train_per_iter = 100
+
+myenv = Environment()
+
+curr_state = myenv.init_episode()
+
+for iteration in range(0,1000):
+
+    for step in range(0, steps_per_iter):
+        action = random.randint(-1,1)
+        next_state,do_reset = myenv.transition(curr_state, action)
+    
+        sbuffer.append((curr_state, action, next_state))
+
+        if do_reset:
+            curr_state = myenv.init_episode()
+        else:
+            curr_state = next_state
+
+
+    print('len sbuffer', len(sbuffer))
+
+    for i in range(0, train_per_iter):
+        s_train = random.choices(sbuffer,k=256)
+        
+
+    raise Exception('done')
+
 for epoch in range(0, 200):
 
     for (x1,y1),(x2,y2) in zip(train_loader, train_loader):
@@ -85,8 +97,6 @@ for epoch in range(0, 200):
         x1 = x1.repeat(1,3,1,1)
         x2 = x2.repeat(1,3,1,1)
 
-        c1 = torch.rand(bs,3,1,1).cuda()
-        c2 = torch.rand(bs,3,1,1).cuda()
 
         a1 = torch.randint(-1,2,size=(bs,)).cuda()
         a2 = torch.randint(-1,2,size=(bs,)).cuda()
