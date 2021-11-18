@@ -23,6 +23,9 @@ from utils import Logger, plot_state_visitation, plot_code_to_state_visualizatio
 import random
 from matplotlib import pyplot as plt
 
+from minigrid.gridworld1 import GridWorld1
+from minigrid.gridworld2 import GridWorld2
+from minigrid.gridworld_wrapper import GridWorldWrapper
 
 parser = get_parser()
 
@@ -118,8 +121,6 @@ parser.add_argument("--use_rgb", action="store_true", default=False, help='wheth
 parser.add_argument("--folder", type=str, default='./results/')
 
 
-
-
 # yapf: enable
 if 'ipykernel' in sys.argv[0]:
     arglist = [
@@ -142,30 +143,14 @@ import matplotlib.pyplot as plt
 
 seeding.seed(args.seed)
 
-#% ------------------ Define MDP ------------------
-if args.walls == 'maze':
-    env = MazeWorld.load_maze(rows=args.rows, cols=args.cols, seed=args.seed)
-    env_name = 'mazeworld'
-elif args.walls == 'spiral':
-    env = SpiralWorld(rows=args.rows, cols=args.cols)
-    env_name = 'spiralworld'
-elif args.walls == 'loop':
-    env = LoopWorld(rows=args.rows, cols=args.cols)
-    env_name = 'loopworld'
-else:
-    env = GridWorld(rows=args.rows, cols=args.cols)
-    env_name = 'gridworld'
-# env = RingWorld(2,4)
-# env = TestWorld()
-# env.add_random_walls(10)
 
-if args.type_obs == 'image_exo_noise':
-    config = {
-          "num_circles": 5,
-          "circle_width": 5,
-          "circle_motion": 0.05
-    }
-    env.set_exo_noise_config(config)
+#### Make minigrid env
+with open("minigrid/config1.json") as f:
+    env_config = json.load(f)
+
+minigrid_env = GridWorld1(env_config)
+env = GridWorldWrapper(minigrid_env, env_config)
+env_name = 'minigrid1'
 
 #% ------------------ LOGGERS ------------------
 if args.use_logger:
@@ -210,21 +195,19 @@ with open(log_dir + '/args-{}.txt'.format(args.seed), 'w') as arg_file:
 cmap = None
 
 #% ------------------ Build Deterministic Tabular MDP Model ------------------
-horizon = 200
+horizon = 20000
 model = DetTabularMDPBuilder(actions=env.actions, horizon=horizon, gamma=1.0)  
 
 #% ------------------ Generate experiences ------------------
-n_samples = 20
+n_samples = 20000
 
-start_state = env.get_state()
-states = [start_state]
+
+start_obs, info = env.reset()
+states = [info['endogenous_state']]
 actions = []
 
-current_state = env.get_state()
-model.add_state(state=tuple((0,0)), timestep=0)
 
-if 'image' in args.type_obs:
-    obses = [env.get_obs(with_exo_noise=('noise' in args.type_obs), change_noise=False)]
+obses = [start_obs]
 
 # config = {
 #           "num_circles": 8,
@@ -238,12 +221,12 @@ if 'image' in args.type_obs:
 
 for step in range(horizon):
     a = np.random.choice(env.actions)
-    next_state, reward, _ = env.step(a)
+    # next_state, reward, _ = env.step(a)
+    obs, reward, done, info = env.step(a)
 
-    states.append(next_state)
+    states.append(info['endogenous_state'])
     actions.append(a)
-    if 'image' in args.type_obs:
-        obses.append(env.get_obs(with_exo_noise=('noise' in args.type_obs), change_noise=False))
+    obses.append(obs)
 
     # model.add_state(state=tuple(next_state) , timestep=step)
     # model.add_transition(tuple(current_state), a, tuple(next_state))
@@ -254,15 +237,12 @@ for step in range(horizon):
 # q_val = value_it.do_value_iteration(tabular_mdp=model, min_reward_val=0.0)
 # expected_ret = q_val[(0, (0, 0))].max()
 
+import ipdb; ipdb.set_trace()
 
 states = np.stack(states)
 s0 = np.asarray(states[:-1, :])
-c0 = s0[:, 0] * env._cols + s0[:, 1]
 s1 = np.asarray(states[1:, :])
 a = np.asarray(actions)
-
-unique_states = set([tuple(_) for _ in states.tolist()])
-all_states = np.asarray(list(set(unique_states)))
 
 MI_max = MI(s0, s0)
 
@@ -272,53 +252,8 @@ MI_max = MI(s0, s0)
 # ax.scatter(xx, yy, c=c0)
 
 # Confirm that we're covering the state space relatively evenly
-if args.use_logger:
-    plot_state_visitation(states[:,0], states[:,1], logger.save_folder, bins=6)
-
-
-
-#% ------------------ Define sensor ------------------
-sensor_list = []
-if args.rearrange_xy:
-    sensor_list.append(RearrangeXYPositionsSensor((env._rows, env._cols)))
-
-if not args.no_sigma:
-    # TODO : change sensor list to add noise only if 'noise' in args.type_obs
-    sensor_list += [
-        OffsetSensor(offset=(0.5, 0.5)),
-        NoisySensor(sigma=0.05),
-        ImageSensor(range=((0, env._rows), (0, env._cols)), pixel_density=3),
-        # ResampleSensor(scale=2.0),
-        BlurSensor(sigma=0.6, truncate=1.),
-        NoisySensor(sigma=0.01)
-    ]
-sensor = SensorChain(sensor_list)
-
-if 'heatmap' in args.type_obs:
-    x0 = sensor.observe(s0)
-    x1 = sensor.observe(s1)
-elif 'image' in args.type_obs:
-    obses = np.stack(obses)
-    x0 = obses[:-1]
-    x1 = obses[1:]
-
-# TODO: collect all obses for viz
-# all_obs = sensor.observe(all_states)
-# all_obs = torch.as_tensor(all_obs).float()
-
-#% --------------------------------------------------------
-
-if args.use_rgb : 
-    ob0 = sensor.observe(s0)
-    ob1 = sensor.observe(s1)
-    im0 = env.get_image(ob0, exo_noise=args.exo_noise, corr_noise=args.corr_noise)
-    im1 = env.get_image(ob1, exo_noise=args.exo_noise, corr_noise=args.corr_noise)
-
-    x0 = im0
-    x1 = im1
-# else:
-#     x0 = ob0
-#     x1 = ob1
+# if args.use_logger:
+#     plot_state_visitation(states[:,0], states[:,1], logger.save_folder, bins=6)
 
 #% ------------------ Setup experiment ------------------
 n_updates_per_frame = 100

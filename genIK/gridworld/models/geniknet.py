@@ -148,8 +148,9 @@ class GenIKNet(Network):
         z1 = self.phi(x1)
 
         if self.use_vq:
-            z0, zq_loss0, z_discrete0  = self.vq_layer(z0)
-            z1, zq_loss1, z_discrete1 = self.vq_layer(z1)
+            z0, zq_loss0, z_discrete0, ind  = self.vq_layer(z0)
+
+            z1, zq_loss1, z_discrete1, ind = self.vq_layer(z1)
             zq_loss = zq_loss0 + zq_loss1
 
         elif self.use_proto:

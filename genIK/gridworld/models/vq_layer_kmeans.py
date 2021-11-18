@@ -52,16 +52,16 @@ class Quantize(nn.Module):
         if self.training and self.data_initialized.item() == 0:
             print('running kmeans!!') # data driven initialization for the embeddings
             rp = torch.randperm(flatten.size(0))
-            kd = kmeans2(flatten[rp[:20000]].data.cpu().numpy(), self.n_embed, minit='points')
+
+            kd = kmeans2(flatten[rp[:20000]].data.cpu().numpy(),    self.n_embed,   minit='points')
+
             self.embed.weight.data.copy_(torch.from_numpy(kd[0]))
+
             self.data_initialized.fill_(1)
             # TODO: this won't work in multi-GPU setups
 
-        dist = (
-            flatten.pow(2).sum(1, keepdim=True)
-            - 2 * flatten @ self.embed.weight.t()
-            + self.embed.weight.pow(2).sum(1, keepdim=True).t()
-        )
+        dist = (    flatten.pow(2).sum(1, keepdim=True) - 2 * flatten @ self.embed.weight.t() + self.embed.weight.pow(2).sum(1, keepdim=True).t())
+
         _, ind = (-dist).max(1)
 
         # vector quantization cost that trains the embedding vectors
@@ -97,12 +97,9 @@ class Quantize(nn.Module):
                 print('test ind lst', sorted(list(set(ind_lst))))
 
 
-        z_q_codebooks = self.out_proj(z_q) 
-
-        # z_q = self.out_proj(z_q) 
-        
-        # return z_q, diff, ind/z_q_codebooks
-        return z_q, diff, ind
+        z_q_codebooks = self.out_proj(z_q)
+        # return z_q, diff, ind
+        return z_q, diff, z_q_codebooks, ind
 
     def embed_code(self, embed_id):
         return F.embedding(embed_id, self.embed.weight)

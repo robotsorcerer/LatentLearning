@@ -48,7 +48,7 @@ class BaseGrid:
         rowscale = scale * self._rows
         colscale = scale * self._cols
         if ax is None:
-            plt.figure(figsize=(colscale, rowscale))
+            fig = plt.figure(figsize=(colscale, rowscale))
             ax = plt.axes()
         ax.axis('off')
         ax.axis('equal')

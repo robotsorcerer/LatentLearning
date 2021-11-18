@@ -39,6 +39,12 @@ class Logger(object):
             self.type2_errors = type2_error
 
 
+      def record_abstraction_accuracy(self, abstraction_accuracy):
+            self.abstraction_accuracy = abstraction_accuracy
+
+      def record_abstraction_error(self, abstraction_error):
+            self.abstraction_error = abstraction_error
+
 
 
       def record_reward(self, reward_return):
@@ -61,23 +67,9 @@ class Logger(object):
             np.save(os.path.join(self.save_folder, "type1_errors.npy"), self.type1_errors)
             np.save(os.path.join(self.save_folder, "type2_errors.npy"), self.type2_errors)
 
-      # def save_2(self):
-      #       np.save(os.path.join(self.save_folder, "returns_train.npy"), self.returns_train)
+            np.save(os.path.join(self.save_folder, "abs_err.npy"), self.abstraction_error)
+            np.save(os.path.join(self.save_folder, "abs_acc.npy"), self.abstraction_accuracy)
 
-      # def save_critic_loss(self):
-      #       np.save(os.path.join(self.save_folder, "critic_loss.npy"), self.returns_critic_loss)
-
-      # def save_reward_loss(self):
-      #       np.save(os.path.join(self.save_folder, "reward_loss.npy"), self.returns_reward_loss)
-
-      # def save_actor_loss(self):
-      #       np.save(os.path.join(self.save_folder, "actor_loss.npy"), self.returns_actor_loss)
-
-
-      # def save_policy(self, policy):
-      #     torch.save(policy.actor.state_dict(), '%s/actor.pth' % (self.save_folder))
-      #     torch.save(policy.critic.state_dict(), '%s/critic.pth' % (self.save_folder))
-            #policy.save(directory=self.save_folder)
 
       def save_args(self, args):
             """
@@ -105,4 +97,59 @@ def plot_state_visitation(x, y, save_folder, bins):
       plt.plot(x,y,'ro')
       plt.colorbar()
       plt.savefig(save_folder + '/state_visitation.png')
+      plt.close()
+
+
+
+def plot_code_to_state_visualization(state_count_for_code, code_number, save_folder, n_embed, statetogrid, counter, gridsize):
+
+      # for i in code_number : 
+
+      i = counter
+      data = state_count_for_code[ counter ]
+
+      data_list = list(data.flatten())
+      highest_state = max(data_list, key=data_list.count, default=0)
+      highest_state_pos = statetogrid[highest_state]
+
+      bins = np.arange(0, gridsize - 1, 1)
+      plt.xlim([0, gridsize - 1])
+      plt.ylim([0, n_embed-1])
+      # plt.text(1,20,'Hello World !')
+      plt.text(1, 20, 'Highest State - Position - ' + str(highest_state_pos) + '- ' + 'State Number - ' + str(highest_state))
+
+      plt.hist(data, bins=bins, alpha=0.5)
+      plt.title('States captured by Codebook Element - ' + str(i) )
+      plt.xlabel('States (0 - 36)')
+      plt.ylabel('State Count for given Codebook Element')
+      plt.savefig(save_folder + '/codebook_visitation_' + str(i) + '.png')
+
+      plt.close()
+
+
+
+
+# def plot_code_to_state_visualization_final(state_count_for_code, code_number, save_folder, n_embed, statetogrid):
+
+#       for i in code_number : 
+#             data = state_count_for_code[ i ]
+
+#             data_list = list(data.flatten())
+#             highest_state = max(data_list, key=data_list.count, default=0)
+#             highest_state_pos = statetogrid[highest_state]
+
+#             bins = np.arange(0, 35, 1)
+#             plt.xlim([0, 35])
+#             plt.ylim([0, n_embed-1])
+#             # plt.text(1,20,'Hello World !')
+#             plt.text(1, 20, 'Highest State - Position - ' + str(highest_state_pos) + '- ' + 'State Number - ' + str(highest_state))
+
+#             plt.hist(data, bins=bins, alpha=0.5)
+#             plt.title('States for Codebook Element - ' + str(i) )
+#             plt.xlabel('States (0 - 36)')
+#             plt.ylabel('State Identification for Given Codebook Element')
+#             plt.savefig(save_folder + '/final_codebook_visitation_' + str(i) + '.png')
+
+#             plt.close()
+
 
