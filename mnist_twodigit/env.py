@@ -23,7 +23,7 @@ class State:
     def __init__(self,c1,c2,y1,y2,x1,x2,t):
         self.c1 = c1
         self.c2 = c2
-        self.y1 = y2
+        self.y1 = y1
         self.y2 = y2
         self.x1 = x1
         self.x2 = x2
@@ -48,7 +48,7 @@ class Environment:
         self.all_y = []
 
         for x,y in train_loader:
-            self.all_x.append(x)
+            self.all_x.append(x.repeat(1,3,1,1))
             self.all_y.append(y)
 
         self.all_x = torch.cat(self.all_x,dim=0)
@@ -59,6 +59,7 @@ class Environment:
         num_classes = 10
         for j in range(num_classes):
             self.x_lst.append(self.all_x[self.all_y==j])
+
 
         self.max_len = 15
 
@@ -72,22 +73,22 @@ class Environment:
         class random (8,9) on each side.  color random on each side.  
     '''
     def init_episode(self):
-        y1 = random.randint(8,9)
-        y2 = random.randint(8,9)
+        y1 = random.randint(0,9)
+        y2 = random.randint(0,9)
 
         c1 = torch.rand(1,3,1,1)
         c2 = torch.rand(1,3,1,1)
 
         x1 = self.get_image_y(y1)
-
         x2 = self.get_image_y(y2)
 
         t = 0
         return State(c1,c2,y1,y2,x1,x2,t)
 
     def get_image_y(self, y):
-        x = self.x_lst[y]
-        x = x[random.randint(0, len(x)-1)]
+        xc = self.x_lst[y]
+        ind = random.randint(0, len(xc)-1)
+        x = xc[ind:ind+1]
 
         return x
 
@@ -99,7 +100,8 @@ class Environment:
         a2 = random.randint(-1,1)
 
         y1 = numpy.clip(state.y1 + a1, 0, 9)
-        y2 = numpy.clip(state.y2 + a2, 0, 9)
+        #y2 = numpy.clip(state.y2 + a2, 0, 9)
+        y2 = random.randint(0,9)
 
         x1 = self.get_image_y(y1)
         x2 = self.get_image_y(y2)
@@ -111,9 +113,8 @@ class Environment:
         else:
             end_ep = False
 
+
         return new_state, end_ep
-
-
 
 
 

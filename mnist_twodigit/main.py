@@ -23,7 +23,7 @@ import random
 import numpy as np
 from torchvision.utils import save_image
 from encoder import Classifier
-
+import copy
 from env import Environment, State
 
 def transition(x,y,y_):
@@ -44,7 +44,7 @@ net = Classifier().cuda()
 
 ce = nn.CrossEntropyLoss()
 
-opt = torch.optim.Adam(net.parameters(), lr=0.0001)
+opt = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.5,0.999), weight_decay=1e-4)
 
 '''
 For each iteration take one step in the environment given the current state.  Keep a replay buffer of all states seen so far.  
@@ -63,7 +63,9 @@ myenv = Environment()
 
 curr_state = myenv.init_episode()
 
-for iteration in range(0,1000):
+for iteration in range(0,100):
+
+    print('iteration', iteration)
 
     for step in range(0, steps_per_iter):
         action = random.randint(-1,1)
@@ -71,73 +73,79 @@ for iteration in range(0,1000):
     
         sbuffer.append((curr_state, action, next_state))
 
+
         if do_reset:
             curr_state = myenv.init_episode()
         else:
-            curr_state = next_state
+            curr_state = copy.deepcopy(next_state)
 
+    if len(sbuffer) > 40000:
+        sbuffer = sbuffer[-10000:]
 
-    print('len sbuffer', len(sbuffer))
+    acc_lst = []
 
     for i in range(0, train_per_iter):
-        s_train = random.choices(sbuffer,k=256)
-        
+        s_train = random.choices(sbuffer,k=128)
 
-    raise Exception('done')
+        x_lst = []
+        xn_lst = []       
+        a_lst = []
+        y1_lst = []
 
-for epoch in range(0, 200):
+        for j in range(0, len(s_train)):
+            s,a,sn = s_train[j]
 
-    for (x1,y1),(x2,y2) in zip(train_loader, train_loader):
+            y1_lst.append(torch.Tensor([s.y1]).long())
+            x_lst.append(torch.Tensor(s.to_image()))
+            a_lst.append(torch.Tensor([a]).long())
+            xn_lst.append(torch.Tensor(sn.to_image()))
 
-        x1 = x1.cuda()
-        y1 = y1.cuda()
-        x2 = x2.cuda()
-        y2 = y2.cuda()
-
-        x1 = x1.repeat(1,3,1,1)
-        x2 = x2.repeat(1,3,1,1)
+        x = torch.cat(x_lst,dim=0).cuda()
+        a1 = torch.cat(a_lst,dim=0).cuda()
+        xn = torch.cat(xn_lst,dim=0).cuda()
+        y1 = torch.cat(y1_lst,dim=0).cuda()
 
 
-        a1 = torch.randint(-1,2,size=(bs,)).cuda()
-        a2 = torch.randint(-1,2,size=(bs,)).cuda()
+        out, q_loss, ind_last = net(x, xn, do_quantize = (iteration > 5))
 
-        y1_ = torch.clamp(y1 + a1,0,9)
-        y2_ = torch.clamp(y2 + a2,0,9)
-
-        x1_new = transition(x1, y1, y1_)
-        x2_new = transition(x2, y2, y2_)
-        
-        x_last = torch.cat([x1*c1,x2*c2], dim=3)
-        x_new = torch.cat([x1_new*c1,x2_new*c2],dim=3)
-
-        out, q_loss, ind_last = net(x_last, x_new, do_quantize = (epoch > 10))
-
-        loss = ce(out, a1+1)
+        #loss = ce(out, a1+1)
+        loss = ce(out, y1)
         loss += q_loss
 
         opt.zero_grad()
         loss.backward()
         opt.step()
 
-    print('loss', epoch, loss)
+        #pred = (out.argmax(1) - 1)
+        pred = out.argmax(1)
 
-    if ind_last is not None:
-        ind_last = ind_last.flatten()
-        print(ind_last)
+        acc = torch.eq(pred, y1).float().mean().item()
+
+        acc_lst.append(acc)
+
+    if iteration % 5 == 0:
+        print(iteration, 'len sbuffer', len(sbuffer))
+        print('loss', loss)
+
+        if ind_last is not None:
+            ind_last = ind_last.flatten()
+            print(ind_last)
+            print(y1)
+
+            print(ind_last.shape, y1.shape)
+
+            for j in range(0,ind_last.max().item() + 1):
+                print(j, y1[ind_last==j])
+
+
+        print('acc', sum(acc_lst)/len(acc_lst))
+
         print(y1)
-
-        for j in range(0,ind_last.max().item() + 1):
-            print(j, y1[ind_last==j])
-
-    pred = (out.argmax(1) - 1)
-    
-    acc = torch.eq(pred, a1).float().mean().item()
-
-    print('acc', acc)
-
-    save_image(x_last, '1.png')
-    save_image(x_new, '2.png')
-        
+        print(a1)
+        print('pred', pred)
+        #save_image(x, '1.png')
+        #save_image(xn, '2.png')
+        #raise Exception('done')
         
 
 
