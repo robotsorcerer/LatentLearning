@@ -2,17 +2,16 @@ import torch
 import torch.nn as nn
 
 from quantize import Quantize
+#from gumbel_quantize import Quantize
 
 class Encoder(nn.Module):
 
-    def __init__(self):
+    def __init__(self, ncodes):
         super(Encoder, self).__init__()
 
         self.enc = nn.Sequential(nn.Linear(3*32*64,512), nn.LeakyReLU(), nn.Linear(512,512), nn.LeakyReLU(), nn.Linear(512, 512))
 
-        self.q = Quantize(512, 30, 1)
-
-        self.enc2 = nn.Sequential(nn.Linear(512,512), nn.LeakyReLU(), nn.Linear(512,512))
+        self.q = Quantize(512, ncodes)
 
     #x is (bs, 3*32*64).  Turn into z of size (bs, 256).  
     def forward(self, x, do_quantize): 
@@ -30,17 +29,15 @@ class Encoder(nn.Module):
             diff = 0.0
             ind = None
 
-        z_q = self.enc2(z_q)
-
         return z_q, diff, ind
 
 
 class Classifier(nn.Module):
 
-    def __init__(self):
+    def __init__(self, ncodes):
         super(Classifier, self).__init__()
 
-        self.enc = Encoder()
+        self.enc = Encoder(ncodes)
 
         self.out = nn.Sequential(nn.Linear(512*2, 512), nn.LeakyReLU(), nn.Linear(512,512), nn.LeakyReLU(), nn.Linear(512, 3))
         #self.out = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3))

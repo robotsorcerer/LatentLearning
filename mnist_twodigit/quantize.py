@@ -19,7 +19,7 @@ class Quantize(nn.Module):
     https://github.com/deepmind/sonnet/blob/v2/sonnet/src/nets/vqvae.py
     https://github.com/deepmind/sonnet/blob/v2/examples/vqvae_example.ipynb
     """
-    def __init__(self, num_hiddens, n_embed, groups):
+    def __init__(self, num_hiddens, n_embed, groups=1):
         super().__init__()
 
         embedding_dim = num_hiddens
@@ -28,7 +28,7 @@ class Quantize(nn.Module):
         self.groups = groups
 
         self.kld_scale = 10.0
-        self.commitment_cost = 0.1
+        self.commitment_cost = 0.25
 
         self.out_proj = nn.Linear(num_hiddens, num_hiddens)
         self.embed = nn.Embedding(n_embed, embedding_dim//groups)

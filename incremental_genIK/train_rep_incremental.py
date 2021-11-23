@@ -270,13 +270,13 @@ def test_rep(fnet, step,  test_s0, test_s1, test_s0_positions, test_s1_positions
             test_sample_states = test_s0_positions
 
             # # looping through each of the indices
-            # for j in range(0, ind_last_0.max().item() + 1) :
+            for j in range(0, ind_last_0.max().item() + 1) :
 
-            #     state_for_code_0 = test_s0_positions[ind_last_0 == j]
-            #     code_to_state_0.append(state_for_code_0)
+                state_for_code_0 = test_s0_positions[ind_last_0 == j]
+                code_to_state_0.append(state_for_code_0)
 
-            #     if args.use_logger:
-            #         plot_code_to_state_visualization(code_to_state_0, codes_numbers, logger.save_folder, args.n_embed, statetogrid, j, gridsize)
+                if args.use_logger:
+                    plot_code_to_state_visualization(code_to_state_0, codes_numbers, logger.save_folder, args.n_embed, statetogrid, j, gridsize)
 
 
             type1_err, type2_err, abs_acc, abs_err = get_eval_error(ind_0, ind_1, test_s0_positions, test_s1_positions)
