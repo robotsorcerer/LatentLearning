@@ -129,27 +129,63 @@ def plot_code_to_state_visualization(state_count_for_code, code_number, save_fol
 
 
 
-# def plot_code_to_state_visualization_final(state_count_for_code, code_number, save_folder, n_embed, statetogrid):
+def get_eval_error(z0, z1, s0, s1):
+    ## Type 1: DSM (different states merged)
+    ## Type 2: SSS (same state separated)
+    type1_err=0
+    type2_err=0
+    abs_acc=0
+    abs_err=0
 
-#       for i in code_number : 
-#             data = state_count_for_code[ i ]
+    s0 = torch.tensor(s0)
+    s1 = torch.tensor(s1)
 
-#             data_list = list(data.flatten())
-#             highest_state = max(data_list, key=data_list.count, default=0)
-#             highest_state_pos = statetogrid[highest_state]
+    for i in range(z0.shape[0]):
+        Z = z0[i] == z1[i]
+        Z = Z.long()
+        Z_comp = torch.prod(Z)
 
-#             bins = np.arange(0, 35, 1)
-#             plt.xlim([0, 35])
-#             plt.ylim([0, n_embed-1])
-#             # plt.text(1,20,'Hello World !')
-#             plt.text(1, 20, 'Highest State - Position - ' + str(highest_state_pos) + '- ' + 'State Number - ' + str(highest_state))
+        S = s0[i] == s1[i]
+        S = S.long()
+        S_comp = torch.prod(S)
 
-#             plt.hist(data, bins=bins, alpha=0.5)
-#             plt.title('States for Codebook Element - ' + str(i) )
-#             plt.xlabel('States (0 - 36)')
-#             plt.ylabel('State Identification for Given Codebook Element')
-#             plt.savefig(save_folder + '/final_codebook_visitation_' + str(i) + '.png')
+        if Z_comp and (1-S_comp):
+            # Error 1: Merging states which should not be merged
+            type1_err += 1
 
-#             plt.close()
+        if (1-Z_comp) and S_comp :
+            #Error 2: Did not merge states which should be merged
+            type2_err += 1
+
+        if Z_comp and S_comp : 
+            abs_acc += 1
+
+        if (1 - Z_comp) and (1 - S_comp):
+            abs_err += 1
+
+    type1_err = type1_err/z0.shape[0] * 100
+    type2_err = type2_err/z0.shape[0] * 100
+    abs_acc = abs_acc/z0.shape[0] * 100
+    abs_err = abs_acc/z0.shape[0] * 100
+
+    return type1_err, type2_err, abs_acc, abs_err
 
 
+
+def states_pos_to_int(test_s0, test_s1, rows, cols):
+    test_s0_positions = np.zeros(test_s0.shape[0])
+    test_s1_positions = np.zeros(test_s1.shape[0])
+    gridtostate = {}
+    statetogrid = {}
+    count = 0
+    for y in range(rows):
+        for x in range(cols):
+            gridtostate[(x, y)] = count
+            statetogrid[count] = (x, y)
+            count += 1
+
+    for i in range(test_s0.shape[0]):
+        test_s0_positions[i] = gridtostate[tuple(test_s0[i])]
+        test_s1_positions[i] = gridtostate[tuple(test_s1[i])]
+
+    return test_s0_positions, test_s1_positions, statetogrid

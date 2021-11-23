@@ -69,6 +69,8 @@ class GenIKNet(Network):
         self.mse = torch.nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
+
+
     def inverse_loss(self, z0, z1, a):
         if self.coefs['L_inv'] == 0.0:
             return torch.tensor(0.0)
@@ -89,27 +91,20 @@ class GenIKNet(Network):
         N = len(z0)
         # shuffle next states
         idx = torch.randperm(N)
-
         a_neg = torch.randint_like(a, low=0, high=self.n_actions)
-
-        # concatenate positive and negative examples
         z0_extended = torch.cat([z0, z0], dim=0)
         z1_extended = torch.cat([z1, z1], dim=0)
         a_pos_neg = torch.cat([a, a_neg], dim=0)
         is_fake = torch.cat([torch.zeros(N), torch.ones(N)], dim=0)
-
         # Compute which ones are fakes
         fakes = self.inv_discriminator(z0_extended, z1_extended, a_pos_neg)
         contrastive_loss = self.bce_loss(input=fakes, target=is_fake.float())
-
         return contrastive_loss
-
 
     def compute_loss(self, z0, z1, a):
         loss = self.coefs['L_coinv'] * self.contrastive_inverse_loss(z0, z1, a)  # zero
         loss = self.coefs['L_genik'] * self.multi_step_inverse_dynamics (z0, z1, a) # multi-step inverse dynamics
         loss += self.coefs['L_inv'] * self.inverse_loss(z0, z1, a)  # inverse model: 1
-
         return loss
 
 
@@ -119,20 +114,15 @@ class GenIKNet(Network):
         self.optimizer.zero_grad()
         z0 = self.phi(x0)
         z1 = self.phi(x1)
-
         if self.use_vq:
             z0, zq_loss0, z_discrete0, ind  = self.vq_layer(z0)
-
             z1, zq_loss1, z_discrete1, ind = self.vq_layer(z1)
             zq_loss = zq_loss0 + zq_loss1
-
         else:
             zq_loss = 0
-
         loss = self.compute_loss(z0, z1, a)
         loss += zq_loss
         loss.backward()
         self.optimizer.step()
-
-
+        
         return loss
