@@ -186,20 +186,10 @@ class GridWorld(grid.BaseGrid):
 #####################################################################
 #####################################################################
 
-    def get_image(self, obs, exo_noise, corr_noise):
+    def get_image(self, obs, exo_noise):
         self.set_exo_noise_config(self.config)
 
-        if corr_noise > 0.0 : 
-            print ("RGB Images under Correlated Exo Noise")
-            images = np.zeros([obs.shape[0], obs.shape[1], obs.shape[1] ])
-            for k in range(obs.shape[0]):
-                im_perturb = (self.generate_image(obs[k, :, :], exo_noise, corr_noise)).reshape(1, obs.shape[1], obs.shape[1])
-                images[k, :, :] = im_perturb
-                # im = self.plot(corr_noise)
-                # plt.imshow(im)
-                # plt.savefig("./exo_noise_gridworld%d.pdf" % k, bbox_inches='tight')
-        else : 
-            images = self.generate_image(obs, exo_noise, corr_noise)
+        images = self.generate_image(obs, exo_noise, corr_noise)
         return images        
 
     def generate_image(self, img, exo_noise, corr_noise):
