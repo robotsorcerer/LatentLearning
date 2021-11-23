@@ -110,6 +110,7 @@ class GenIKNet(Network):
 
 
     def train_batch(self, x0, x1, a):
+        
         self.train()
         self.optimizer.zero_grad()
         z0 = self.phi(x0)
@@ -124,5 +125,5 @@ class GenIKNet(Network):
         loss += zq_loss
         loss.backward()
         self.optimizer.step()
-        
+
         return loss
