@@ -87,8 +87,10 @@ for epoch in range(0, 200):
     state_transition = torch.zeros(30,3,30)
 
     tr_lst = []
+    trn_lst = []
     for j in range(0,30):
         tr_lst.append([])
+        trn_lst.append([])
 
     for (x1,y1),(x2,y2) in zip(train_loader, train_loader):
 
@@ -127,7 +129,7 @@ for epoch in range(0, 200):
         x_last = torch.cat([x1*c1,x2*c2], dim=3)
         x_new = torch.cat([x1_new*c1,x2_new*c2],dim=3)
 
-        out, q_loss, ind_last, ind_new = net(x_last, x_new, do_quantize = (epoch > 10))
+        out, q_loss, ind_last, ind_new = net(x_last, x_new, do_quantize = (epoch > 5))
 
         loss = ce(out, a1+1)
         loss += q_loss
@@ -141,10 +143,11 @@ for epoch in range(0, 200):
 
         if ind_last is not None:
             for j in range(0, ind_last.shape[0]):
-                state_transition[ind_last[j], a1[j], ind_new[j]] += 1
+                state_transition[ind_last.flatten()[j], a1[j], ind_new.flatten()[j]] += 1
 
             for j in range(0,ind_last.max().item() + 1):
                 tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
+                trn_lst[j] += y1[ind_new.flatten()==j].data.cpu().numpy().tolist()
 
     print('loss', epoch, loss)
 
@@ -153,21 +156,34 @@ for epoch in range(0, 200):
         ind_new = ind_new.flatten()
 
         if epoch % 5 == 0:
-            print(ind_last)
-            print(y1)
+            print('y last', y1)
+            print('last', ind_last)
+            print('a1', a1)
+            print('next', ind_new)
+            print('y next', y1_)
 
             mode_lst = []
-            for j in range(0,ind_last.max().item() + 1):
+            moden_lst = []
+            for j in range(0,30):
                 #print(j, y1[ind_last==j])
                 random.shuffle(tr_lst[j])
-                mode_lst.append(torch.Tensor(tr_lst[j]).argmax())
-                print(j, tr_lst[j][0:30])
+                if len(tr_lst[j]) == 0:
+                    mode_lst.append(-1)
+                else:
+                    mode_lst.append(torch.Tensor(tr_lst[j]).mode()[0])
+                
+                if len(trn_lst[j]) == 0:
+                    moden_lst.append(-1)
+                else:
+                    moden_lst.append(torch.Tensor(trn_lst[j]).mode()[0])
+                
+                print(j, tr_lst[j][0:50])
 
             print('state transition matrix!')
             for a in range(0,3):
                 for k in range(0,state_transition.shape[0]):
                     if state_transition[k,a].sum().item() > 0:
-                        print(mode_lst[k], a-1, 'argmax', mode_lst[state_transition[k,a].argmax()], 'num', state_transition[k,a].sum().item())
+                        print(mode_lst[k], a-1, 'argmax', moden_lst[state_transition[k,a].argmax()], 'num', state_transition[k,a].sum().item())
     
 
     print('acc', sum(accs)/len(accs))

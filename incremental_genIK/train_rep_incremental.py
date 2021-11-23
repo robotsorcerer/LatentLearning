@@ -248,9 +248,13 @@ def test_rep(fnet, step,  test_s0, test_s1, test_s0_positions, test_s1_positions
         z0 = fnet.phi(test_x0)
         z1 = fnet.phi(test_x1)
 
+        print('test_s0 shape', test_s0.shape)
+
         if fnet.use_vq:
             z0, zq_loss0, z_discrete0, ind_0 = fnet.vq_layer(z0)
             z1, zq_loss1, z_discrete1, ind_1 = fnet.vq_layer(z1)
+
+            print('z0 shape', z0.shape)
 
             zq_loss = zq_loss0 + zq_loss1
             zq_loss = zq_loss.numpy().tolist()
@@ -291,4 +295,13 @@ for frame_idx in tqdm(range(n_frames + 1)):
         fnet.train_batch(tx0, tx1, ta)
 
     step, type1_err, type2_err, z_discrete0, z_discrete1 = test_rep(fnet, frame_idx * n_updates_per_frame,  test_s0, test_s1, test_s0_positions, test_s1_positions, frame_idx, n_frames)
+
+
+
+
+
+
+
+
+
 

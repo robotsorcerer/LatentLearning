@@ -126,3 +126,11 @@ class GenIKNet(Network):
         self.optimizer.step()
         
         return loss
+
+
+
+
+
+
+
+
