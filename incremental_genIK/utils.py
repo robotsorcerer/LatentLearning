@@ -38,14 +38,11 @@ class Logger(object):
       def record_type2_errors(self, type2_error):
             self.type2_errors = type2_error
 
-
       def record_abstraction_accuracy(self, abstraction_accuracy):
             self.abstraction_accuracy = abstraction_accuracy
 
       def record_abstraction_error(self, abstraction_error):
             self.abstraction_error = abstraction_error
-
-
 
       def record_reward(self, reward_return):
             self.returns_eval = reward_return

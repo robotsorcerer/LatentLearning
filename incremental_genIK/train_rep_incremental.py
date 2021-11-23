@@ -92,7 +92,6 @@ parser.add_argument("--use_two_mazes", action="store_true", default=False, help=
 args = parser.parse_args()
 seeding.seed(args.seed)
 
-
 #% ------------------ Define MDP ------------------
 env = GridWorld(rows=args.rows, cols=args.cols)
 env_2 = GridWorld(rows=args.rows, cols=args.cols)
@@ -109,7 +108,7 @@ else:
     logger = None
 
 
-#% ------------------ Generate experiences ------------------
+
 # n_samples = args.n_test_samples
 n_samples = args.n_test_samples
 start_state = env.get_state()
@@ -123,6 +122,8 @@ if args.use_two_mazes:
 current_state = env.get_state()
 
 
+
+#% ------------------ Generate experiences ------------------
 
 policy = StationaryStochasticPolicy(len(env.actions), obs_dim=current_state.shape[0])
 # two env rollouts - one with policy \pi and another with random action
@@ -139,6 +140,8 @@ for step in range(n_samples):
         next_state2, reward2, _ = env_2.step(a2)
         states_env_2.append(next_state2)
         actions_env_2.append(a2)
+
+### Deterministic Transition Builder -- DP step
 
 
 states = np.stack(states)
@@ -165,9 +168,9 @@ if args.use_two_mazes :
     x0_env_2 = sensor.observe(s0_env_2)
     x1_env_2 = sensor.observe(s1_env_2)
 
-## Concatenate observations from the two mazes
-x0 = np.concatenate([x0, x0_env_2], axis=1)
-x1 = np.concatenate([x1, x1_env_2], axis=1)
+    ## Concatenate observations from the two mazes
+    x0 = np.concatenate([x0, x0_env_2], axis=1)
+    x1 = np.concatenate([x1, x1_env_2], axis=1)
 
 
 #% ------------------ Setup experiment ------------------
@@ -192,6 +195,8 @@ fnet = GenIKNet(n_actions=4,
                 discrete_cfg=discrete_cfg,
                 coefs=coefs)
 
+
+#% ------------------ Test Samples ------------------
 n_test_samples = 1000
 test_s0 = s0[-n_test_samples:, :]
 test_s1 = s1[-n_test_samples:, :]
@@ -199,12 +204,8 @@ test_s1 = s1[-n_test_samples:, :]
 test_x0 = sensor.observe(test_s0)
 test_x1 = sensor.observe(test_s1)
 
-
 test_x0 = torch.as_tensor(test_x0[-n_test_samples:, :]).float()
 test_x1 = torch.as_tensor(test_x1[-n_test_samples:, :]).float()
-
-
-test_s0_positions, test_s1_positions, statetogrid = states_pos_to_int(test_s0, test_s1, args.rows, args.cols)
 
 
 
@@ -230,17 +231,15 @@ def get_batch(x0, x1, a, s0, s1, batch_size=batch_size):
 
     return tx0, tx1, ta,  sx0, sx1
 
-
 get_next_batch = (lambda: get_batch(   x0[:n_samples // 2, :],   x1[:n_samples // 2, :],    a[:n_samples // 2],   s0[:n_samples],  s1[:n_samples]   )  )
-
-
-
 
 
 type1_evaluations = []
 type2_evaluations = []
 abstraction_accuracy =[]
 abstraction_error = []
+
+test_s0_positions, test_s1_positions, statetogrid = states_pos_to_int(test_s0, test_s1, args.rows, args.cols)
 
 def test_rep(fnet, step,  test_s0, test_s1, test_s0_positions, test_s1_positions, frame_idx, n_frames):
     with torch.no_grad():
@@ -259,6 +258,27 @@ def test_rep(fnet, step,  test_s0, test_s1, test_s0_positions, test_s1_positions
             zq_loss = zq_loss0 + zq_loss1
             zq_loss = zq_loss.numpy().tolist()
 
+            ind_last_0 = ind_0.flatten()
+            ind_last_1 = ind_1.flatten()
+
+            code_to_state_0 = []
+            code_to_state_1 = []
+
+
+            # indices for the test samples
+            codebooks = ind_0
+            test_sample_states = test_s0_positions
+
+            # # looping through each of the indices
+            # for j in range(0, ind_last_0.max().item() + 1) :
+
+            #     state_for_code_0 = test_s0_positions[ind_last_0 == j]
+            #     code_to_state_0.append(state_for_code_0)
+
+            #     if args.use_logger:
+            #         plot_code_to_state_visualization(code_to_state_0, codes_numbers, logger.save_folder, args.n_embed, statetogrid, j, gridsize)
+
+
             type1_err, type2_err, abs_acc, abs_err = get_eval_error(ind_0, ind_1, test_s0_positions, test_s1_positions)
 
             type1_evaluations.append(type1_err)
@@ -274,13 +294,7 @@ def test_rep(fnet, step,  test_s0, test_s1, test_s0_positions, test_s1_positions
                 logger.save()
         else:
             zq_loss = 0.
-
     return  step, type1_err, type2_err, z_discrete0, z_discrete1
-
-
-
-
-
 
 
 
