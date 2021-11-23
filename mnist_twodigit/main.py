@@ -58,11 +58,6 @@ train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
 #Given (cat(x1,x2), cat(x1,x2)_ --> classify a.  ).  
 
 def transition(x,y,y_,myenv):
-    x_lst = []
-
-    for j in range(0,10):
-        x_lst.append(x[y==j])
-
     x_new = x*0.0
 
     for j in range(bs):
@@ -73,7 +68,11 @@ def transition(x,y,y_,myenv):
     return x_new
 
 
-net = Classifier().cuda()
+
+net = Classifier()
+
+if torch.cuda.is_available():
+    net = net.cuda()
 
 ce = nn.CrossEntropyLoss()
 
@@ -86,21 +85,38 @@ for epoch in range(0, 200):
 
     accs = []
     state_transition = torch.zeros(30,3,30)
+
+    tr_lst = []
+    for j in range(0,30):
+        tr_lst.append([])
+
     for (x1,y1),(x2,y2) in zip(train_loader, train_loader):
 
-        x1 = x1.cuda()
-        y1 = y1.cuda()
-        x2 = x2.cuda()
-        y2 = y2.cuda()
+        x1 = x1
+        y1 = y1
+        x2 = x2
+        y2 = y2
+
+        if torch.cuda.is_available():
+            x1 = x1.cuda()
+            y1 = y1.cuda()
+            x2 = x2.cuda()
+            y2 = y2.cuda()
 
         x1 = x1.repeat(1,3,1,1)
         x2 = x2.repeat(1,3,1,1)
 
-        c1 = torch.rand(bs,3,1,1).cuda()
-        c2 = torch.rand(bs,3,1,1).cuda()
+        c1 = torch.rand(bs,3,1,1)
+        c2 = torch.rand(bs,3,1,1)
 
-        a1 = torch.randint(-1,2,size=(bs,)).cuda()
-        a2 = torch.randint(-1,2,size=(bs,)).cuda()
+        a1 = torch.randint(-1,2,size=(bs,))
+        a2 = torch.randint(-1,2,size=(bs,))
+
+        if torch.cuda.is_available():
+            c1 = c1.cuda()
+            c2 = c2.cuda()
+            a1 = a1.cuda()
+            a2 = a2.cuda()
 
         y1_ = torch.clamp(y1 + a1,0,9)
         y2_ = torch.clamp(y2 + a2,0,9)
@@ -127,6 +143,9 @@ for epoch in range(0, 200):
             for j in range(0, ind_last.shape[0]):
                 state_transition[ind_last[j], a1[j], ind_new[j]] += 1
 
+            for j in range(0,ind_last.max().item() + 1):
+                tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
+
     print('loss', epoch, loss)
 
     if ind_last is not None:
@@ -137,25 +156,23 @@ for epoch in range(0, 200):
             print(ind_last)
             print(y1)
 
+            mode_lst = []
             for j in range(0,ind_last.max().item() + 1):
-                print(j, y1[ind_last==j])
+                #print(j, y1[ind_last==j])
+                random.shuffle(tr_lst[j])
+                mode_lst.append(torch.Tensor(tr_lst[j]).argmax())
+                print(j, tr_lst[j][0:30])
 
             print('state transition matrix!')
             for a in range(0,3):
                 for k in range(0,state_transition.shape[0]):
                     if state_transition[k,a].sum().item() > 0:
-                        print(k, a-1, 'argmax', state_transition[k,a].argmax(), 'num', state_transition[k,a].sum().item())
+                        print(mode_lst[k], a-1, 'argmax', mode_lst[state_transition[k,a].argmax()], 'num', state_transition[k,a].sum().item())
     
+
     print('acc', sum(accs)/len(accs))
 
     #save_image(x_last, '1.png')
     #save_image(x_new, '2.png')
         
         
-
-
-
-
-
-
-

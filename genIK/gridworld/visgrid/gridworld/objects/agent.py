@@ -10,3 +10,9 @@ class Agent(BaseSprite):
         xy = pos2xy(self.position) + (0.5, 0.5)
         c = plt.Circle(xy, 0.3, color='k', fill=False, linewidth=1)
         ax.add_patch(c)
+
+
+    # def plot_discrete(self, ax, z_discrete):
+    #     xy = pos2xy(sampled_z_discrete)
+    #     c = plt.Circle(xy, 0.3, color='k', fill=False, linewidth=1)
+    #     ax.add_patch(c)

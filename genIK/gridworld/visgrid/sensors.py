@@ -4,6 +4,7 @@ import scipy.ndimage
 import scipy.stats
 import torch
 
+
 def get_truncated_normal(mean=0, sd=1.0, low=-1, upp=1):
     return scipy.stats.truncnorm((low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
 
@@ -32,6 +33,15 @@ class OffsetSensor:
 
     def observe(self, s):
         return s + self.offset
+
+class SensorChain:
+    def __init__(self, sensors):
+        self.sensors = sensors
+
+    def observe(self, s):
+        for sensor in self.sensors:
+            s = sensor.observe(s)
+        return s
 
 class NoisySensor:
     def __init__(self, sigma=0.1, truncation=None):
@@ -68,6 +78,7 @@ class ImageSensor:
         if s.ndim == 1:
             s = np.expand_dims(s, axis=0)
         n_samples = s.shape[0]
+
         digitized = scipy.stats.binned_statistic_2d(s[:, 0],
                                                     s[:, 1],
                                                     np.arange(n_samples),
@@ -169,11 +180,4 @@ class UnsqueezeSensor:
     def observe(self, s):
         return s.unsqueeze(dim=self.dim)
 
-class SensorChain:
-    def __init__(self, sensors):
-        self.sensors = sensors
 
-    def observe(self, s):
-        for sensor in self.sensors:
-            s = sensor.observe(s)
-        return s

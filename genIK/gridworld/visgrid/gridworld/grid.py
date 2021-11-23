@@ -26,7 +26,6 @@ class BaseGrid:
     def __init__(self, rows, cols):
         self._rows = rows
         self._cols = cols
-
         # Add rows and columns for walls between cells
         self._grid = np.ones([rows * 2 + 1, cols * 2 + 1], dtype=grid_type)
         self._contents = np.empty([rows * 2 + 1, cols * 2 + 1], dtype=np.object)
@@ -45,11 +44,11 @@ class BaseGrid:
         return self._contents[row // 2, col // 2]
 
     def plot(self, ax=None, draw_bg_grid=True):
-        scale = 3 / 5
+        scale = 1 #3 / 5
         rowscale = scale * self._rows
         colscale = scale * self._cols
         if ax is None:
-            plt.figure(figsize=(colscale, rowscale))
+            fig = plt.figure(figsize=(colscale, rowscale))
             ax = plt.axes()
         ax.axis('off')
         ax.axis('equal')

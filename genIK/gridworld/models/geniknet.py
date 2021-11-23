@@ -11,17 +11,21 @@ from .contrastivenet import ContrastiveNet
 from .invdiscriminator import InvDiscriminator
 from .vq_layer_kmeans import Quantize
 from .proto import Proto
+from .proto_utils import soft_update_params
+
 
 class GenIKNet(Network):
     def __init__(self,
                  n_actions,
-                 groups,
-                 n_embed,
                  input_shape=2,
-                 n_latent_dims=4,
+                 n_latent_dims=128,
                  n_hidden_layers=1,
                  n_units_per_layer=32,
                  lr=0.001,
+                 use_vq=None,
+                 discrete_cfg=None, #groups and n_embed
+                 use_proto=None,
+                 phi_target_tau=0.05,
                  coefs=None):
         super().__init__()
         self.n_actions = n_actions
@@ -38,26 +42,36 @@ class GenIKNet(Network):
                           n_units_per_layer=n_units_per_layer,
                           n_hidden_layers=n_hidden_layers)
 
-        self.groups = groups
-        self.n_embed = n_embed
+        self.use_vq = use_vq
+        self.use_proto = use_proto
 
         # add a VQ layer
-        self.use_vq = True
-        self.vq_layer = Quantize(n_latent_dims, self.n_embed, self.groups)
+        if self.use_vq:
+            assert discrete_cfg is not None
+            self.vq_layer = Quantize(n_latent_dims, discrete_cfg['n_embed'], discrete_cfg['groups'])
 
-
-        # TODO : hard-coded for now, for testing proto-types
-        self.temp = 0.1
-        num_iters = 3
-        topk = 10
-        obs_shape = input_shape[1]
-        self.proto_cluster = Proto(n_latent_dims, self.n_embed, self.temp, self.groups, num_iters, topk)
+        if self.use_proto:
+            # assert discrete_cfg is not None
+            self.phi_target = PhiNet(input_shape=input_shape,
+                                     n_latent_dims=n_latent_dims,
+                                     n_units_per_layer=n_units_per_layer,
+                                     n_hidden_layers=n_hidden_layers)
+            self.phi_target.load_state_dict(self.phi.state_dict())
+            self.phi_target_tau = phi_target_tau
+            self.proto = Proto(n_latent_dims, 16, 0.1, 10, 3, 3) # these values may be given in args or config
 
         # self.fwd_model = FwdNet(n_actions=n_actions, n_latent_dims=n_latent_dims, n_hidden_layers=n_hidden_layers, n_units_per_layer=n_units_per_layer)
         self.inv_model = InvNet(n_actions=n_actions,
                                 n_latent_dims=n_latent_dims,
                                 n_units_per_layer=n_units_per_layer,
                                 n_hidden_layers=n_hidden_layers)
+
+
+        self.multi_step_inv_model = InvNet(n_actions=n_actions,
+                                n_latent_dims=n_latent_dims,
+                                n_units_per_layer=n_units_per_layer,
+                                n_hidden_layers=n_hidden_layers)
+
         self.inv_discriminator = InvDiscriminator(n_actions=n_actions,
                                                   n_latent_dims=n_latent_dims,
                                                   n_units_per_layer=n_units_per_layer,
@@ -76,6 +90,14 @@ class GenIKNet(Network):
             return torch.tensor(0.0)
         a_hat = self.inv_model(z0, z1)
         return self.cross_entropy(input=a_hat, target=a)
+
+    def multi_step_inverse_dynamics(self, z0, z1, a):
+        if self.coefs['L_genik'] == 0.0:
+            return torch.tensor(0.0)
+
+        a_hat = self.multi_step_inv_model(z0, z1)
+        return self.cross_entropy(input=a_hat, target=a)
+
 
     def contrastive_inverse_loss(self, z0, z1, a):
         if self.coefs['L_coinv'] == 0.0:
@@ -98,6 +120,9 @@ class GenIKNet(Network):
 
         return contrastive_loss
 
+    def get_protos(self, x0, x1):
+        assert self.use_proto
+        return self.proto.get_protos(self.phi, self.phi_target, x0, x1)
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -107,12 +132,14 @@ class GenIKNet(Network):
         # a_logits = self.inv_model(z0, z1)
         # return torch.argmax(a_logits, dim=-1)
 
-    def compute_loss(self, z0, z1, a, d, zq_loss):
-        loss = zq_loss
-        loss += self.coefs['L_coinv'] * self.contrastive_inverse_loss(z0, z1, a)  # zero
+    def compute_loss(self, z0, z1, a, d):
+        loss = self.coefs['L_coinv'] * self.contrastive_inverse_loss(z0, z1, a)  # zero
+        loss = self.coefs['L_genik'] * self.multi_step_inverse_dynamics (z0, z1, a) # multi-step inverse dynamics
         loss += self.coefs['L_inv'] * self.inverse_loss(z0, z1, a)  # inverse model: 1
 
         return loss
+
+
 
     def train_batch(self, x0, x1, a, d):
         self.train()
@@ -121,19 +148,24 @@ class GenIKNet(Network):
         z1 = self.phi(x1)
 
         if self.use_vq:
-            z0, zq_loss0, z_discrete0  = self.vq_layer(z0)
-            z1, zq_loss1, z_discrete1 = self.vq_layer(z1)
+            z0, zq_loss0, z_discrete0, ind  = self.vq_layer(z0)
+
+            z1, zq_loss1, z_discrete1, ind = self.vq_layer(z1)
             zq_loss = zq_loss0 + zq_loss1
 
-        elif self.proto_cluster:
-            zq_loss0 = self.proto_cluster(z0, z0)
-            zq_loss1 = self.proto_cluster(z1, z1)
-            zq_loss = zq_loss0 + zq_loss1
+        elif self.use_proto:
+            # TODO: for now no visual data augmentation is used (proto-rl does), can easily add it
+            z0, z1, zq_loss = self.get_protos(x0, x1)
         else:
             zq_loss = 0
-        # z1_hat = self.fwd_model(z0, a)
-        loss = self.compute_loss(z0, z1, a, d, zq_loss)
+
+        loss = self.compute_loss(z0, z1, a, d)
+        loss += zq_loss
         loss.backward()
         self.optimizer.step()
+
+        # ema update of phi_target
+        if self.use_proto:
+            soft_update_params(self.phi, self.phi_target, self.phi_target_tau)
 
         return loss

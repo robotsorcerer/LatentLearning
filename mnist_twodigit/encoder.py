@@ -3,11 +3,6 @@ import torch.nn as nn
 
 from quantize import Quantize
 
-import torch
-import torch.nn as nn
-
-from quantize import Quantize
-
 class Encoder(nn.Module):
 
     def __init__(self):
@@ -44,6 +39,7 @@ class Classifier(nn.Module):
         self.enc = Encoder()
 
         self.out = nn.Sequential(nn.Linear(512*2, 512), nn.LeakyReLU(), nn.Linear(512,512), nn.LeakyReLU(), nn.Linear(512, 3))
+        #self.out = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3))
 
     #s is of size (bs, 256).  Turn into a of size (bs,3).  
     def forward(self, x, x_next, do_quantize):
