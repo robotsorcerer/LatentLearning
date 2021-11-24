@@ -30,7 +30,7 @@ from env import Env
 
 import statistics
 
-bs = 256
+bs = 100
 
 train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
                                                          download=True,
@@ -97,8 +97,13 @@ for epoch in range(0, 200):
 
     for (x1,y1),(x2,y2) in zip(train_loader, train_loader):
 
-        x1 = x1
-        y1 = y1
+        #x1 = x1
+        #y1 = y1
+
+        x1 = torch.cat(myenv.x_lst[5], dim=0).unsqueeze(1)
+        y1 = y1*0 + 5
+
+
         x2 = x2
         y2 = y2
 
@@ -111,8 +116,10 @@ for epoch in range(0, 200):
         x1 = x1.repeat(1,3,1,1)
         x2 = x2.repeat(1,3,1,1)
 
-        c1 = torch.rand(bs,3,1,1)
-        c2 = torch.rand(bs,3,1,1)
+        #c1 = torch.rand(bs,3,1,1)
+        #c2 = torch.rand(bs,3,1,1)
+        c1 = torch.ones(bs,3,1,1)
+        c2 = torch.ones(bs,3,1,1)
 
         a1 = torch.randint(-1,2,size=(bs,))
         a2 = torch.randint(-1,2,size=(bs,))
@@ -132,14 +139,10 @@ for epoch in range(0, 200):
         x_last = torch.cat([x1*c1,x2*c2], dim=3)
         x_new = torch.cat([x1_new*c1,x2_new*c2],dim=3)
 
-        out, q_loss, ind_last, ind_new = net(x_last, x_new, do_quantize = True)
-
-        out_c, _, _, _ = net(x_last, x_new, do_quantize=False)
+        out, q_loss, ind_last, ind_new = net(x_last, x_new, do_quantize = (epoch > 5))
 
         loss = ce(out, a1+1)
         loss += q_loss
-
-        loss += 0.1*ce(out_c, a1+1)
 
         opt.zero_grad()
         loss.backward()
@@ -153,11 +156,11 @@ for epoch in range(0, 200):
         ind_last = ind_last.flatten()
         ind_new = ind_new.flatten()
         for j in range(0, ind_last.shape[0]):
-            state_transition[ind_last.flatten()[j], a1[j], ind_new.flatten()[j]] += 1
+            state_transition[ind_last.flatten()[j], a1[j]+1, ind_new.flatten()[j]] += 1
 
         for j in range(0,ncodes):
             tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
-            trn_lst[j] += y1[ind_new.flatten()==j].data.cpu().numpy().tolist()
+            trn_lst[j] += y1_[ind_new.flatten()==j].data.cpu().numpy().tolist()
 
             if len(tr_lst[j]) > 0:
                 print('last', j, tr_lst[j], 'mode', statistics.mode(tr_lst[j]))
@@ -198,9 +201,11 @@ for epoch in range(0, 200):
                         print(mode_lst[k], a-1, 'argmax', moden_lst[state_transition[k,a].argmax()], 'num', state_transition[k,a].sum().item())
     
 
+            #save_image(x_last, '1.png')
+            #save_image(x_new, '2.png')
+
+
     print('acc', sum(accs)/len(accs))
 
-    #save_image(x_last, '1.png')
-    #save_image(x_new, '2.png')
-        
+    
         

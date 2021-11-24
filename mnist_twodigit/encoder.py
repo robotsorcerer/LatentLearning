@@ -9,7 +9,7 @@ class Encoder(nn.Module):
     def __init__(self, ncodes):
         super(Encoder, self).__init__()
 
-        self.enc = nn.Sequential(nn.Linear(3*32*64,512), nn.LeakyReLU(), nn.Linear(512,512), nn.LeakyReLU(), nn.Linear(512, 512))
+        self.enc = nn.Sequential(nn.Linear(3*32*64,1024), nn.LayerNorm(1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LayerNorm(1024), nn.LeakyReLU(), nn.Linear(1024, 512))
 
         self.q = Quantize(512, ncodes)
 
@@ -39,7 +39,7 @@ class Classifier(nn.Module):
 
         self.enc = Encoder(ncodes)
 
-        self.out = nn.Sequential(nn.Linear(512*2, 512), nn.LeakyReLU(), nn.Linear(512,512), nn.LeakyReLU(), nn.Linear(512, 3))
+        self.out = nn.Sequential(nn.Linear(512*3, 1024), nn.LayerNorm(1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LayerNorm(1024), nn.LeakyReLU(), nn.Linear(1024, 10))
         #self.out = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3))
 
     #s is of size (bs, 256).  Turn into a of size (bs,3).  
@@ -48,7 +48,7 @@ class Classifier(nn.Module):
         z1,el_1,ind_1 = self.enc(x, do_quantize)
         z2,el_2,ind_2 = self.enc(x_next, do_quantize)
 
-        z = torch.cat([z1,z2],dim=1)
+        z = torch.cat([z1,z2,z1-z2],dim=1)
 
         out = self.out(z)
 
