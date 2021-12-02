@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from quantize import Quantize
 #from gumbel_quantize import Quantize
+#from quantize_ema import Quantize
 
 class Encoder(nn.Module):
 
@@ -11,18 +12,32 @@ class Encoder(nn.Module):
 
         self.enc = nn.Sequential(nn.Linear(3*32*64,1024), nn.LayerNorm(1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LayerNorm(1024), nn.LeakyReLU(), nn.Linear(1024, 512))
 
-        self.q = Quantize(512, ncodes)
+        self.qlst = []
+        self.kemb = []
+
+        for nf in [1,64,256]:
+            self.qlst.append(Quantize(512, ncodes, nf))
+            self.kemb.append(nn.Embedding(1, 3*32*64))
+
+        self.qlst = nn.ModuleList(self.qlst)
+        self.kemb = nn.ModuleList(self.kemb)
+        
 
     #x is (bs, 3*32*64).  Turn into z of size (bs, 256).  
-    def forward(self, x, do_quantize): 
+    def forward(self, x, do_quantize, reinit_codebook=False, k=0): 
 
         x = x.reshape((x.shape[0], -1))
+
+        emb = self.kemb[k](torch.zeros(x.shape[0],1).long().cuda())
+
+        xin = x + emb.squeeze(1)
 
         x = self.enc(x)
 
         if do_quantize:
             x = x.unsqueeze(0)
-            z_q, diff, ind = self.q(x)
+            q = self.qlst[k]
+            z_q, diff, ind = q(x)
             z_q = z_q.squeeze(0)
         else:
             z_q = x
@@ -43,10 +58,10 @@ class Classifier(nn.Module):
         #self.out = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3))
 
     #s is of size (bs, 256).  Turn into a of size (bs,3).  
-    def forward(self, x, x_next, do_quantize):
+    def forward(self, x, x_next, do_quantize, reinit_codebook=False, k=0):
 
-        z1,el_1,ind_1 = self.enc(x, do_quantize)
-        z2,el_2,ind_2 = self.enc(x_next, do_quantize)
+        z1,el_1,ind_1 = self.enc(x, do_quantize, reinit_codebook,k=k)
+        z2,el_2,ind_2 = self.enc(x_next, do_quantize, reinit_codebook,k=k)
 
         z = torch.cat([z1,z2,z1-z2],dim=1)
 

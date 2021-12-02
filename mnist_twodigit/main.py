@@ -79,7 +79,7 @@ if torch.cuda.is_available():
 
 ce = nn.CrossEntropyLoss()
 
-opt = torch.optim.Adam(net.parameters(), lr=0.0001)
+opt = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.0,0.999))
 
 myenv = Env()
 
@@ -95,14 +95,17 @@ for epoch in range(0, 200):
         tr_lst.append([])
         trn_lst.append([])
 
+    iteration = 0
+
     for (x1,y1),(x2,y2) in zip(train_loader, train_loader):
 
-        #x1 = x1
-        #y1 = y1
+        iteration += 1
+        x1 = x1
+        y1 = y1
 
-        x1 = torch.cat(myenv.x_lst[5], dim=0).unsqueeze(1)
-        y1 = y1*0 + 5
-
+        if epoch < 3:
+            x1 = torch.cat(myenv.x_lst[5], dim=0).unsqueeze(1)
+            y1 = y1*0 + 5
 
         x2 = x2
         y2 = y2
@@ -139,10 +142,14 @@ for epoch in range(0, 200):
         x_last = torch.cat([x1*c1,x2*c2], dim=3)
         x_new = torch.cat([x1_new*c1,x2_new*c2],dim=3)
 
-        out, q_loss, ind_last, ind_new = net(x_last, x_new, do_quantize = (epoch > 5))
+        loss = 0.0
 
-        loss = ce(out, a1+1)
-        loss += q_loss
+        for k_ind in [2,1,0]:
+            xl_use = x_last*1.0
+            xn_use = x_new*1.0
+            out, q_loss, ind_last, ind_new = net(xl_use, xn_use, do_quantize = (epoch >= 0), reinit_codebook = False, k=k_ind)
+            loss += ce(out, a1+1)
+            loss += q_loss
 
         opt.zero_grad()
         loss.backward()
@@ -158,6 +165,11 @@ for epoch in range(0, 200):
         for j in range(0, ind_last.shape[0]):
             state_transition[ind_last.flatten()[j], a1[j]+1, ind_new.flatten()[j]] += 1
 
+        for j in range(0,ncodes):
+            tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
+            trn_lst[j] += y1_[ind_new.flatten()==j].data.cpu().numpy().tolist()
+
+    if ind_last is not None:
         for j in range(0,ncodes):
             tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
             trn_lst[j] += y1_[ind_new.flatten()==j].data.cpu().numpy().tolist()
