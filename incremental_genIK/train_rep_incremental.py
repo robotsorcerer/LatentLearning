@@ -1,3 +1,9 @@
+## codebook = {
+    
+
+### n - hyperparameter, e.g 50
+### codebook = {} : dictionary [0 - count(#number of times that codebook element appears), 1, 2]
+
 
 import imageio
 import json
@@ -33,10 +39,10 @@ parser.add_argument('--type', type=str, default='genIK', choices=['markov', 'aut
 parser.add_argument('-n','--n_updates', type=int, default=3000,
                     help='Number of training updates')
 
-parser.add_argument('-r','--rows', type=int, default=6,
+parser.add_argument('-r','--rows', type=int, default=3,
                     help='Number of gridworld rows')
 
-parser.add_argument('-c','--cols', type=int, default=6,
+parser.add_argument('-c','--cols', type=int, default=3,
                     help='Number of gridworld columns')
 
 parser.add_argument('-w', '--walls', type=str, default='empty', choices=['empty', 'maze', 'spiral', 'loop'],
@@ -57,10 +63,10 @@ parser.add_argument('--L_coinv', type=float, default=0.0,
 parser.add_argument('-lr','--learning_rate', type=float, default=0.003,
                     help='Learning rate for Adam optimizer')
 
-parser.add_argument('--batch_size', type=int, default=100,
+parser.add_argument('--batch_size', type=int, default=1,
                     help='Mini batch size for training updates')
 
-parser.add_argument('--n_test_samples', type=int, default=4000,
+parser.add_argument('--n_test_samples', type=int, default=2000,
                     help='Number of test samples to use for the representation')
 
 parser.add_argument('-s','--seed', type=int, default=0,
@@ -107,19 +113,20 @@ if args.use_logger:
 else:
     logger = None
 
-
-
-# n_samples = args.n_test_samples
 n_samples = args.n_test_samples
 start_state = env.get_state()
 states = [start_state]
 actions = []
+
+horizon = args.n_test_samples
+model = DetTabularMDPBuilder(actions=env.actions, horizon=horizon, gamma=1.0)  
 
 if args.use_two_mazes:
     start_state_env_2 = env_2.get_state()
     states_env_2 = [start_state_env_2]
     actions_env_2 = []
 current_state = env.get_state()
+model.add_state(current_state, timestep=0)
 
 
 
@@ -127,7 +134,7 @@ current_state = env.get_state()
 
 policy = StationaryStochasticPolicy(len(env.actions), obs_dim=current_state.shape[0])
 # two env rollouts - one with policy \pi and another with random action
-for step in range(n_samples):
+for step in range(0, n_samples, 1):
     a = np.random.choice(env.actions)
     next_state, reward, _ = env.step(a)
     current_state = next_state
@@ -141,13 +148,40 @@ for step in range(n_samples):
         states_env_2.append(next_state2)
         actions_env_2.append(a2)
 
+        # model.add_state(state=tuple(next_state) , timestep=step)
+        model.add_state(next_state, timestep=step)
+
+        model.add_transition(tuple(current_state), a, tuple(next_state))
+
+        model.add_reward(tuple(current_state-1), a, float(reward))
+        current_state = next_state
+
+print('states', model._states)
+print('transitions', model._transitions)
+
+# model.finalize()
+value_it = ValueIteration()
+q_val = value_it.do_value_iteration(tabular_mdp=model, min_reward_val=0.0,horizon=3)
+# expected_ret = q_val[(0, (0, 0))].max()
+
+# value_it = ValueIteration()
+# q_val = value_it.do_value_iteration(tabular_mdp=model, horizon=args.n_test_samples, min_reward_val=0.0)
+
 ### Deterministic Transition Builder -- DP step
-
-
 states = np.stack(states)
+
+
+print ("Transitions", model._transitions)
+print ("States", model._states)
+
+import ipdb; ipdb.set_trace()
+
+
 s0 = np.asarray(states[:-1, :])
 s1 = np.asarray(states[1:, :])
 a = np.asarray(actions)
+
+
 
 if args.use_two_mazes:
     states_env_2 = np.stack(states_env_2)
@@ -197,7 +231,7 @@ fnet = GenIKNet(n_actions=4,
 
 
 #% ------------------ Test Samples ------------------
-n_test_samples = 1000
+n_test_samples = args.n_test_samples
 test_s0 = s0[-n_test_samples:, :]
 test_s1 = s1[-n_test_samples:, :]
 
@@ -210,7 +244,6 @@ test_x1 = torch.as_tensor(test_x1[-n_test_samples:, :]).float()
 
 
 def get_batch(x0, x1, a, s0, s1, batch_size=batch_size):
-
     idx = np.random.choice(len(a), batch_size, replace=False)
     tx0 = torch.as_tensor(x0[idx]).float()
     ta = torch.as_tensor(a[idx]).long()
@@ -244,6 +277,7 @@ test_s0_positions, test_s1_positions, statetogrid = states_pos_to_int(test_s0, t
 def test_rep(fnet, step,  test_s0, test_s1, test_s0_positions, test_s1_positions, frame_idx, n_frames):
     with torch.no_grad():
         fnet.eval()
+
         z0 = fnet.phi(test_x0)
         z1 = fnet.phi(test_x1)
 
@@ -269,14 +303,18 @@ def test_rep(fnet, step,  test_s0, test_s1, test_s0_positions, test_s1_positions
             codebooks = ind_0
             test_sample_states = test_s0_positions
 
+            import ipdb; ipdb.set_trace()
             # # looping through each of the indices
-            # for j in range(0, ind_last_0.max().item() + 1) :
+            for j in range(0, ind_last_0.max().item() + 1) :
 
+                state_for_code_0 = test_s0_positions[ind_last_0 == j]
+                code_to_state_0.append(state_for_code_0)
+            #     import ipdb; ipdb.set_trace()
             #     state_for_code_0 = test_s0_positions[ind_last_0 == j]
             #     code_to_state_0.append(state_for_code_0)
 
-            #     if args.use_logger:
-            #         plot_code_to_state_visualization(code_to_state_0, codes_numbers, logger.save_folder, args.n_embed, statetogrid, j, gridsize)
+                if args.use_logger:
+                    plot_code_to_state_visualization(code_to_state_0, codes_numbers, logger.save_folder, args.n_embed, statetogrid, j, gridsize)
 
 
             type1_err, type2_err, abs_acc, abs_err = get_eval_error(ind_0, ind_1, test_s0_positions, test_s1_positions)

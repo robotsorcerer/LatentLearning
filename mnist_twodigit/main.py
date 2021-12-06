@@ -28,7 +28,9 @@ from encoder import Classifier
 
 from env import Env
 
-bs = 256
+import statistics
+
+bs = 100
 
 train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
                                                          download=True,
@@ -68,15 +70,16 @@ def transition(x,y,y_,myenv):
     return x_new
 
 
+ncodes = 100
 
-net = Classifier()
+net = Classifier(ncodes=ncodes)
 
 if torch.cuda.is_available():
     net = net.cuda()
 
 ce = nn.CrossEntropyLoss()
 
-opt = torch.optim.Adam(net.parameters(), lr=0.0001)
+opt = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.0,0.999))
 
 myenv = Env()
 
@@ -84,18 +87,26 @@ myenv = Env()
 for epoch in range(0, 200):
 
     accs = []
-    state_transition = torch.zeros(30,3,30)
+    state_transition = torch.zeros(ncodes,3,ncodes)
 
     tr_lst = []
     trn_lst = []
-    for j in range(0,30):
+    for j in range(0,ncodes):
         tr_lst.append([])
         trn_lst.append([])
 
+    iteration = 0
+
     for (x1,y1),(x2,y2) in zip(train_loader, train_loader):
 
+        iteration += 1
         x1 = x1
         y1 = y1
+
+        if epoch < 3:
+            x1 = torch.cat(myenv.x_lst[5], dim=0).unsqueeze(1)
+            y1 = y1*0 + 5
+
         x2 = x2
         y2 = y2
 
@@ -108,8 +119,10 @@ for epoch in range(0, 200):
         x1 = x1.repeat(1,3,1,1)
         x2 = x2.repeat(1,3,1,1)
 
-        c1 = torch.rand(bs,3,1,1)
-        c2 = torch.rand(bs,3,1,1)
+        #c1 = torch.rand(bs,3,1,1)
+        #c2 = torch.rand(bs,3,1,1)
+        c1 = torch.ones(bs,3,1,1)
+        c2 = torch.ones(bs,3,1,1)
 
         a1 = torch.randint(-1,2,size=(bs,))
         a2 = torch.randint(-1,2,size=(bs,))
@@ -129,10 +142,14 @@ for epoch in range(0, 200):
         x_last = torch.cat([x1*c1,x2*c2], dim=3)
         x_new = torch.cat([x1_new*c1,x2_new*c2],dim=3)
 
-        out, q_loss, ind_last, ind_new = net(x_last, x_new, do_quantize = (epoch > 5))
+        loss = 0.0
 
-        loss = ce(out, a1+1)
-        loss += q_loss
+        for k_ind in [2,1,0]:
+            xl_use = x_last*1.0
+            xn_use = x_new*1.0
+            out, q_loss, ind_last, ind_new = net(xl_use, xn_use, do_quantize = (epoch >= 0), reinit_codebook = False, k=k_ind)
+            loss += ce(out, a1+1)
+            loss += q_loss
 
         opt.zero_grad()
         loss.backward()
@@ -141,13 +158,26 @@ for epoch in range(0, 200):
         pred = (out.argmax(1) - 1)
         accs.append(torch.eq(pred, a1).float().mean().item())
 
-        if ind_last is not None:
-            for j in range(0, ind_last.shape[0]):
-                state_transition[ind_last.flatten()[j], a1[j], ind_new.flatten()[j]] += 1
 
-            for j in range(0,ind_last.max().item() + 1):
-                tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
-                trn_lst[j] += y1[ind_new.flatten()==j].data.cpu().numpy().tolist()
+    if ind_last is not None:
+        ind_last = ind_last.flatten()
+        ind_new = ind_new.flatten()
+        for j in range(0, ind_last.shape[0]):
+            state_transition[ind_last.flatten()[j], a1[j]+1, ind_new.flatten()[j]] += 1
+
+        for j in range(0,ncodes):
+            tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
+            trn_lst[j] += y1_[ind_new.flatten()==j].data.cpu().numpy().tolist()
+
+    if ind_last is not None:
+        for j in range(0,ncodes):
+            tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
+            trn_lst[j] += y1_[ind_new.flatten()==j].data.cpu().numpy().tolist()
+
+            if len(tr_lst[j]) > 0:
+                print('last', j, tr_lst[j], 'mode', statistics.mode(tr_lst[j]))
+            if len(trn_lst[j]) > 0:
+                print('next', j, trn_lst[j], 'mode', statistics.mode(trn_lst[j]))
 
     print('loss', epoch, loss)
 
@@ -155,7 +185,7 @@ for epoch in range(0, 200):
         ind_last = ind_last.flatten()
         ind_new = ind_new.flatten()
 
-        if epoch % 5 == 0:
+        if epoch % 2 == 0:
             print('y last', y1)
             print('last', ind_last)
             print('a1', a1)
@@ -164,20 +194,17 @@ for epoch in range(0, 200):
 
             mode_lst = []
             moden_lst = []
-            for j in range(0,30):
-                #print(j, y1[ind_last==j])
-                random.shuffle(tr_lst[j])
+            for j in range(0,ncodes):
                 if len(tr_lst[j]) == 0:
                     mode_lst.append(-1)
                 else:
-                    mode_lst.append(torch.Tensor(tr_lst[j]).mode()[0])
+                    mode_lst.append(statistics.mode(tr_lst[j]))#torch.Tensor(tr_lst[j]).mode()[0])
                 
                 if len(trn_lst[j]) == 0:
                     moden_lst.append(-1)
                 else:
-                    moden_lst.append(torch.Tensor(trn_lst[j]).mode()[0])
+                    moden_lst.append(statistics.mode(trn_lst[j]))#torch.Tensor(trn_lst[j]).mode()[0])
                 
-                print(j, tr_lst[j][0:50])
 
             print('state transition matrix!')
             for a in range(0,3):
@@ -186,9 +213,11 @@ for epoch in range(0, 200):
                         print(mode_lst[k], a-1, 'argmax', moden_lst[state_transition[k,a].argmax()], 'num', state_transition[k,a].sum().item())
     
 
+            #save_image(x_last, '1.png')
+            #save_image(x_new, '2.png')
+
+
     print('acc', sum(accs)/len(accs))
 
-    #save_image(x_last, '1.png')
-    #save_image(x_new, '2.png')
-        
+    
         
