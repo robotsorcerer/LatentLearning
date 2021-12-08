@@ -32,6 +32,8 @@ from transition import Transition
 
 import statistics
 
+from value_iteration import value_iteration
+
 bs = 100
 
 train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
@@ -103,7 +105,7 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
 
     return out, loss, ind_last, ind_new, a1, y1, y1_
 
-ncodes = 128
+ncodes = 64
 
 def init_model():
     net = Classifier(ncodes=ncodes)
@@ -129,13 +131,14 @@ transition = Transition(ncodes)
 is_initial = True
 step = 0
 
-num_rand = 500
+num_rand = 100
+ep_length = 10
 
-for env_iteration in range(0, 10000):
+for env_iteration in range(0, 20000):
 
     #do one step in env.  
 
-    if step == 10:
+    if step == ep_length:
         print('reinit env')
         is_initial=True
         step = 0
@@ -155,14 +158,18 @@ for env_iteration in range(0, 10000):
 
     net.eval()
     #pick actions randomly or with policy
-    if mybuffer.num_ex < num_rand:
+    if mybuffer.num_ex < num_rand or step == ep_length:
+        print('random action')
         a1 = torch.randint(-1,2,size=(1,))
     else:
         print('use policy to pick action!')
         reward = transition.select_goal()
         _, _, init_state = net.enc((x*1.0).cuda(),True)
         print('init state abstract', init_state)
-        a1 = transition.select_policy(init_state.cpu().item(), reward)
+        #a1 = transition.select_policy(init_state.cpu().item(), reward)
+        a1 = value_iteration(transition.state_transition, ncodes, init_state, reward)
+        a1 = torch.Tensor([a1]).long()
+        print('a1', a1)
 
     a2 = torch.randint(-1,2,size=(1,))
 
@@ -190,8 +197,8 @@ for env_iteration in range(0, 10000):
     for iteration in range(0,num_iter):
 
         print_ = iteration==num_iter-1
-        do_quantize = True#iteration >= 2000
-        reinit_code = False#iteration == 2000
+        do_quantize = True#iteration >= 500
+        reinit_code = False#iteration == 500
         out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_ = update_model(net, mybuffer, print_, do_quantize, reinit_code, 128, None)
 
         opt.zero_grad()

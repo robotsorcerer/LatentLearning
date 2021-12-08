@@ -84,9 +84,9 @@ class Transition:
 
     def select_goal(self):
 
-        code_count = self.state_transition.sum(dim=(1,2))
+        code_count = self.state_transition.sum(dim=(0))
 
-        reward = 1.0 / (code_count+0.1)
+        reward = 1.0 / (code_count+0.1)**2
 
         #print('reward', reward)
 

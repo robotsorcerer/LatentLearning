@@ -39,7 +39,8 @@ class Encoder(nn.Module):
     #x is (bs, 3*32*64).  Turn into z of size (bs, 256).  
     def forward(self, x, do_quantize, reinit_codebook=False, k=0): 
 
-        if self.training:
+        do_aug = False
+        if self.training and do_aug:
             #print('x shape', x.shape, x.min(), x.max())
             #save_image(x, 'xorig.png')
             x = self.crop(x)

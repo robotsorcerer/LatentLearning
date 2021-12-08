@@ -38,7 +38,7 @@ class Env:
 
         print(len(self.x_lst))
         for j in range(0, 10):
-            self.x_lst[j] = self.x_lst[j][0:1000]
+            self.x_lst[j] = self.x_lst[j][0:100]
 
     def initial_state(self):
         randind1 = random.randint(0,99)
