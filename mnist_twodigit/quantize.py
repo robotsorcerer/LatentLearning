@@ -28,7 +28,7 @@ class Quantize(nn.Module):
         self.groups = groups
 
         self.kld_scale = 10.0
-        self.commitment_cost = 0.01
+        self.commitment_cost = 0.05#0.001#0.01
 
         self.out_proj = nn.Linear(num_hiddens, num_hiddens)
         self.embed = nn.Embedding(n_embed, embedding_dim//groups)
@@ -50,7 +50,7 @@ class Quantize(nn.Module):
         #flatten = flatten.reshape((flatten.shape[0], self.groups, self.embedding_dim//self.groups)).reshape((flatten.shape[0] * self.groups, self.embedding_dim//self.groups))
 
         # DeepMind def does not do this but I find I have to... ;\
-        if reinit_codebook or (self.training and self.data_initialized.item() == 0):
+        if True and (reinit_codebook or (self.training and self.data_initialized.item() == 0)):
             print('running kmeans!!') # data driven initialization for the embeddings
             rp = torch.randperm(flatten.size(0))
             kd = kmeans2(flatten[rp[:20000]].data.cpu().numpy(), self.n_embed, minit='points')

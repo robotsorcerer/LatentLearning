@@ -38,7 +38,54 @@ class Env:
 
         print(len(self.x_lst))
         for j in range(0, 10):
-            self.x_lst[j] = self.x_lst[j][0:100]
+            self.x_lst[j] = self.x_lst[j][0:1000]
 
+    def initial_state(self):
+        randind1 = random.randint(0,99)
+        randind2 = random.randint(0,99)
+
+        start_class = 9
+
+        x1 = torch.cat(self.x_lst[start_class], dim=0).unsqueeze(1)[randind1:randind1+1]
+        y1 = torch.zeros(1).long() + start_class
+
+        randclass = random.randint(0,9)
+        x2 = torch.cat(self.x_lst[randclass], dim=0).unsqueeze(1)[randind2:randind2+1]
+        y2 = torch.zeros(1).long() + randclass
+
+        x1 = x1.repeat(1,3,1,1)
+        x2 = x2.repeat(1,3,1,1)
+
+
+        c1 = torch.rand(1,3,1,1)
+        c2 = torch.rand(1,3,1,1)
+        #c1 = torch.ones(1,3,1,1)
+        #c2 = torch.ones(1,3,1,1)
+
+        return y1,c1,y2,c2,x1,x2
+
+
+    def transition_x(self, y_):
+
+        x_choices = self.x_lst[y_.item()]
+        x_new = x_choices[random.randint(0, len(x_choices)-1)]
+
+        return x_new
+
+
+    def transition(self, a1,a2,y1,y2,c1,c2): 
+
+        y1 = y1.cuda()
+        y2 = y2.cuda()
+        a1 = a1.cuda()
+        a2 = a2.cuda()
+
+        y1_ = torch.clamp(y1 + a1,0,9)
+        y2_ = torch.clamp(y2 + a2,0,9)
+
+        x1_ = self.transition_x(y1_)
+        x2_ = self.transition_x(y2_)
+
+        return x1_, x2_, y1_, y2_
 
 
