@@ -28,7 +28,7 @@ class Quantize(nn.Module):
         self.groups = groups
 
         self.kld_scale = 10.0
-        self.commitment_cost = 0.05#0.001#0.01
+        self.commitment_cost = 0.25#0.05#0.001#0.01
 
         self.out_proj = nn.Linear(num_hiddens, num_hiddens)
         self.embed = nn.Embedding(n_embed, embedding_dim//groups)
@@ -98,7 +98,7 @@ class Quantize(nn.Module):
                 print('test ind lst', sorted(list(set(ind_lst))))
 
 
-        z_q = self.out_proj(z_q)
+        #z_q = self.out_proj(z_q)
 
         return z_q, diff, ind
 

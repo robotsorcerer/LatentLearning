@@ -28,7 +28,7 @@ def one_step_lookahead(state, V, discount, probs, n_actions, n_states, rewards):
         #    action_values[action] += prob * (reward + discount * V[next_state])
 
         for next_state in range(0, n_states):
-            reward = rewards[action, next_state]
+            reward = rewards[state]
             prob = probs[state, action, next_state]
             action_values[action] += prob * (reward + discount * V[next_state])
 
@@ -36,7 +36,7 @@ def one_step_lookahead(state, V, discount, probs, n_actions, n_states, rewards):
 
 
 
-def value_iteration(t_counts, n_states, eval_state, rewards, discount=1e-1, theta=1e-9, max_iter=10, sample_action=True):
+def value_iteration(t_counts, n_states, eval_state, rewards, discount=1e-1, theta=1e-9, max_iter=10, sample_action=False):
     """
     Value iteration algorithm to solve MDP.
     

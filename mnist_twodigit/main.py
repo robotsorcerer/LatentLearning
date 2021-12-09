@@ -64,9 +64,10 @@ train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
 #Given (cat(x1,x2), cat(x1,x2)_ --> classify a.  ).  
 
 
-def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_ind=None): 
+def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_ind=None, klim=None): 
 
-    a1, y1, y1_, x_last, x_new = mybuffer.sample_batch(bs, batch_ind)
+    a1, y1, y1_, x_last, x_new, k_offset = mybuffer.sample_batch(bs, batch_ind, klim=klim)
+
 
     if torch.cuda.is_available():
         x_last.cuda()
@@ -77,11 +78,14 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
         model.cuda()
 
     loss = 0.0
-    for k_ind in [3,2,1,0]:
+    for k_ind in [2,1,0]:
         xl_use = x_last*1.0
         xn_use = x_new*1.0
-        out, q_loss, ind_last, ind_new, z1, z2 = model(xl_use, xn_use, do_quantize = True, reinit_codebook = reinit_codebook, k=k_ind)
- 
+
+
+
+        out, q_loss, ind_last, ind_new, z1, z2 = model(xl_use, xn_use, do_quantize = True, reinit_codebook = reinit_codebook, k=k_ind, k_offset=k_offset)
+
         #if k_ind == 0:
         #    pl = model.proj_loss(z1, xl_use)
         #    pl2 = model.proj_loss(z2, xn_use)
@@ -103,9 +107,9 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
     ind_last = ind_last.flatten()
     ind_new = ind_new.flatten()
 
-    return out, loss, ind_last, ind_new, a1, y1, y1_
+    return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
 
-ncodes = 64
+ncodes = 16
 
 def init_model():
     net = Classifier(ncodes=ncodes)
@@ -124,17 +128,19 @@ ce = nn.CrossEntropyLoss()
 net = init_model()
 opt = init_opt(net)
 
+
+num_rand = 5000
+ep_length = 10
+ep_rand = 10
+
 myenv = Env()
-mybuffer = Buffer()
+mybuffer = Buffer(ep_length=ep_length, max_k=8)
 transition = Transition(ncodes)
 
 is_initial = True
 step = 0
 
-num_rand = 100
-ep_length = 10
-
-for env_iteration in range(0, 20000):
+for env_iteration in range(0, 50000):
 
     #do one step in env.  
 
@@ -142,6 +148,7 @@ for env_iteration in range(0, 20000):
         print('reinit env')
         is_initial=True
         step = 0
+        ep_rand = random.randint(0, ep_length) #after this step in episode follow random policy
     else:
         step += 1
 
@@ -156,15 +163,17 @@ for env_iteration in range(0, 20000):
     
     x = torch.cat([x1*c1,1*x2*c2], dim=3)
 
+
+
     net.eval()
     #pick actions randomly or with policy
-    if mybuffer.num_ex < num_rand or step == ep_length:
+    if mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.2:
         print('random action')
         a1 = torch.randint(-1,2,size=(1,))
     else:
         print('use policy to pick action!')
         reward = transition.select_goal()
-        _, _, init_state = net.enc((x*1.0).cuda(),True)
+        init_state = net.encode((x*1.0).cuda())
         print('init state abstract', init_state)
         #a1 = transition.select_policy(init_state.cpu().item(), reward)
         a1 = value_iteration(transition.state_transition, ncodes, init_state, reward)
@@ -180,7 +189,7 @@ for env_iteration in range(0, 20000):
     #make x from x1,x2
     x_ = torch.cat([x1_*c1,1*x2_*c2], dim=3)
 
-    mybuffer.add_example(a1, y1, y1_, c1, y2, y2_, c2, x, x_)
+    mybuffer.add_example(a1, y1, y1_, c1, y2, y2_, c2, x, x_, step)
 
     print('my buffer numex', mybuffer.num_ex)
 
@@ -193,13 +202,13 @@ for env_iteration in range(0, 20000):
 
     net.train()
     accs = []
-    num_iter = 2000
+    num_iter = 5000
     for iteration in range(0,num_iter):
 
         print_ = iteration==num_iter-1
-        do_quantize = True#iteration >= 500
-        reinit_code = False#iteration == 500
-        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_ = update_model(net, mybuffer, print_, do_quantize, reinit_code, 128, None)
+        do_quantize = iteration >= 500
+        reinit_code = iteration == 500
+        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, do_quantize, reinit_code, 128, None, None)
 
         opt.zero_grad()
         loss.backward()
@@ -215,27 +224,40 @@ for env_iteration in range(0, 20000):
 
         ex_lst = list(range(k,min(mybuffer.num_ex, k+100)))
 
+        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, True, False, len(ex_lst), ex_lst, klim=1)        
 
-        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_ = update_model(net, mybuffer, print_, True, False, len(ex_lst), ex_lst)
-
-        
         pred = (out.argmax(1) - 1)
         a1 = a1.cuda()
         pred = pred.cuda()
         accs.append(torch.eq(pred, a1).float().mean().item())
         transition.update(ind_last, ind_new, a1, tr_y1, tr_y1_)
 
-    print(out, a1+1)
+
+    accs_all = []
+    for k in range(0, mybuffer.num_ex, 100):
+
+        ex_lst = list(range(k,min(mybuffer.num_ex, k+100)))
+
+        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, koffset = update_model(net, mybuffer, print_, True, False, len(ex_lst), ex_lst, klim=None)
+
+        pred = (out.argmax(1) - 1)
+        a1 = a1.cuda()
+        pred = pred.cuda()
+        accs_all.append(torch.eq(pred, a1).float().mean().item())
+
+    print('genik')
+    print('offsets', koffset)
+    print('action', a1+1)
     print('last_y', tr_y1)
     print('new_y', tr_y1_)
     print('last_ind', ind_last)
     print('new_ind', ind_new)
-
+    print('------------------------------')
     transition.print_codes()
     transition.print_modes()
     print('loss', env_iteration, loss)
-    print('acc', sum(accs)/len(accs))
-
+    print('acc-1', sum(accs)/len(accs))
+    print('acc-k', sum(accs_all)/len(accs_all))
     
         
 
