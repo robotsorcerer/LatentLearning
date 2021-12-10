@@ -57,10 +57,10 @@ class Env:
         x2 = x2.repeat(1,3,1,1)
 
 
-        c1 = torch.rand(1,3,1,1)
-        c2 = torch.rand(1,3,1,1)
-        #c1 = torch.ones(1,3,1,1)
-        #c2 = torch.ones(1,3,1,1)
+        #c1 = torch.rand(1,3,1,1)
+        #c2 = torch.rand(1,3,1,1)
+        c1 = torch.ones(1,3,1,1)
+        c2 = torch.ones(1,3,1,1)
 
         return y1,c1,y2,c2,x1,x2
 

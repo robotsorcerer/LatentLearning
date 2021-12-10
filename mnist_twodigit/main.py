@@ -109,7 +109,7 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
 
     return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
 
-ncodes = 16
+ncodes = 32
 
 def init_model():
     net = Classifier(ncodes=ncodes)
@@ -129,9 +129,9 @@ net = init_model()
 opt = init_opt(net)
 
 
-num_rand = 5000
-ep_length = 10
-ep_rand = 10
+num_rand = 100
+ep_length = 20
+ep_rand = ep_length
 
 myenv = Env()
 mybuffer = Buffer(ep_length=ep_length, max_k=8)
@@ -161,9 +161,7 @@ for env_iteration in range(0, 50000):
         x1 = x1_
         x2 = x2_
     
-    x = torch.cat([x1*c1,1*x2*c2], dim=3)
-
-
+    x = torch.cat([x1*c1,0*x2*c2], dim=3)
 
     net.eval()
     #pick actions randomly or with policy
@@ -187,7 +185,7 @@ for env_iteration in range(0, 50000):
     print('example', y1, y1_, a1)
 
     #make x from x1,x2
-    x_ = torch.cat([x1_*c1,1*x2_*c2], dim=3)
+    x_ = torch.cat([x1_*c1,0*x2_*c2], dim=3)
 
     mybuffer.add_example(a1, y1, y1_, c1, y2, y2_, c2, x, x_, step)
 
@@ -197,17 +195,17 @@ for env_iteration in range(0, 50000):
         continue
 
     #net = init_model()
-    #opt = init_opt(net)
+    opt = init_opt(net)
     transition.reset()
 
     net.train()
     accs = []
-    num_iter = 5000
+    num_iter = 2000
     for iteration in range(0,num_iter):
 
         print_ = iteration==num_iter-1
-        do_quantize = iteration >= 500
-        reinit_code = iteration == 500
+        do_quantize = iteration >= 500 or mybuffer.num_ex > 150
+        reinit_code = False
         out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, do_quantize, reinit_code, 128, None, None)
 
         opt.zero_grad()
@@ -245,21 +243,25 @@ for env_iteration in range(0, 50000):
         pred = pred.cuda()
         accs_all.append(torch.eq(pred, a1).float().mean().item())
 
-    print('genik')
-    print('offsets', koffset)
-    print('action', a1+1)
-    print('last_y', tr_y1)
-    print('new_y', tr_y1_)
-    print('last_ind', ind_last)
-    print('new_ind', ind_new)
-    print('------------------------------')
+
+        if False:
+            print('genik')
+            for j in range(0,koffset.shape[0]):
+                print('offsets', koffset[j])
+                print('action', (a1)[j])
+                print('last_y', tr_y1[j])
+                print('new_y', tr_y1_[j])
+                print('last_ind', ind_last[j])
+                print('new_ind', ind_new[j])
+                print('------------------------------')
+    
     transition.print_codes()
     transition.print_modes()
     print('loss', env_iteration, loss)
     print('acc-1', sum(accs)/len(accs))
     print('acc-k', sum(accs_all)/len(accs_all))
     
-        
+    #raise Exception('done')    
 
 
 

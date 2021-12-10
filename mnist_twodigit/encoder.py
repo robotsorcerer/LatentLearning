@@ -78,7 +78,7 @@ class Classifier(nn.Module):
 
         self.enc = Encoder(ncodes)
 
-        self.out = nn.Sequential(nn.Linear(512*3, 1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 10))
+        self.out = nn.Sequential(nn.Dropout(0.2), nn.Linear(512*3, 1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 10))
         #self.out = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3))
 
         self.ce = nn.CrossEntropyLoss()
@@ -135,8 +135,8 @@ class Classifier(nn.Module):
         ae_loss_1, z1_low = self.ae(x)
         ae_loss_2, z2_low = self.ae(x_next)
 
-        z1,el_1,ind_1 = self.enc(z1_low, do_quantize, reinit_codebook,k=k)
-        z2,el_2,ind_2 = self.enc(z2_low, do_quantize, reinit_codebook,k=k)
+        z1,el_1,ind_1 = self.enc(z1_low.detach(), do_quantize, reinit_codebook,k=k)
+        z2,el_2,ind_2 = self.enc(z2_low.detach(), do_quantize, reinit_codebook,k=k)
 
         #print('k_offset', k_offset)
         #print('k_offset shape', k_offset.shape)
