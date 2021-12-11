@@ -134,11 +134,13 @@ ep_length = 20
 ep_rand = ep_length
 
 myenv = Env()
-mybuffer = Buffer(ep_length=ep_length, max_k=8)
+mybuffer = Buffer(ep_length=ep_length, max_k=10)
 transition = Transition(ncodes)
 
 is_initial = True
 step = 0
+
+reinit_code = False
 
 for env_iteration in range(0, 50000):
 
@@ -148,7 +150,7 @@ for env_iteration in range(0, 50000):
         print('reinit env')
         is_initial=True
         step = 0
-        ep_rand = random.randint(0, ep_length) #after this step in episode follow random policy
+        ep_rand = random.randint(ep_length//2, ep_length) #after this step in episode follow random policy
     else:
         step += 1
 
@@ -174,7 +176,7 @@ for env_iteration in range(0, 50000):
         init_state = net.encode((x*1.0).cuda())
         print('init state abstract', init_state)
         #a1 = transition.select_policy(init_state.cpu().item(), reward)
-        a1 = value_iteration(transition.state_transition, ncodes, init_state, reward)
+        a1 = value_iteration(transition.state_transition, ncodes, init_state, reward, max_iter=ep_length)
         a1 = torch.Tensor([a1]).long()
         print('a1', a1)
 
@@ -200,12 +202,16 @@ for env_iteration in range(0, 50000):
 
     net.train()
     accs = []
-    num_iter = 2000
+    if mybuffer.num_ex > 150:
+        num_iter = 500
+    else:
+        num_iter = 2000
     for iteration in range(0,num_iter):
 
         print_ = iteration==num_iter-1
+
         do_quantize = iteration >= 500 or mybuffer.num_ex > 150
-        reinit_code = False
+        
         out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, do_quantize, reinit_code, 128, None, None)
 
         opt.zero_grad()
@@ -254,7 +260,8 @@ for env_iteration in range(0, 50000):
                 print('last_ind', ind_last[j])
                 print('new_ind', ind_new[j])
                 print('------------------------------')
-    
+ 
+
     transition.print_codes()
     transition.print_modes()
     print('loss', env_iteration, loss)

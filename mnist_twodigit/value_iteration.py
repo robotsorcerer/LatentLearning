@@ -23,14 +23,18 @@ def one_step_lookahead(state, V, discount, probs, n_actions, n_states, rewards):
     """
     n_actions = n_actions
     action_values = np.zeros(shape=n_actions)
+
     for action in range(n_actions):
         #for prob, next_state, reward, done in probs[state][action]:
         #    action_values[action] += prob * (reward + discount * V[next_state])
 
         for next_state in range(0, n_states):
-            reward = rewards[state]
+            reward = rewards[next_state]
             prob = probs[state, action, next_state]
             action_values[action] += prob * (reward + discount * V[next_state])
+            #print('prob/reward', prob, reward)
+
+    #print('action-values in loop', action_values)
 
     return action_values
 
@@ -59,9 +63,15 @@ def value_iteration(t_counts, n_states, eval_state, rewards, discount=1e-1, thet
     V = np.zeros(n_states)
     n_actions = 3   
     
-    eps = 1e-5
-    counts = t_counts
-    probs = counts / (eps + counts.sum(dim=2, keepdim=True))
+    eps = 1e-9
+    counts = t_counts + eps
+    probs = counts / (counts.sum(dim=2, keepdim=True))
+
+    #print('rewards', rewards)
+    #for state in range(n_states):
+    #    print('probs', probs[state][0], probs[state][1], probs[state][2])
+    #raise Exception('done')
+
 
     for i in range(int(max_iter)):
         # early stopping condition
@@ -105,6 +115,7 @@ def value_iteration(t_counts, n_states, eval_state, rewards, discount=1e-1, thet
         normed = normed / normed.sum()
         best_action = np.random.choice([-1,0,1], 1, p=normed)[0]
     else:
+        action_value += np.random.normal(0,0.00001,size=(3,))
         best_action = np.argmax(action_value)-1
 
     #return policy, V

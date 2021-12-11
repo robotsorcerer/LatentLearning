@@ -72,7 +72,7 @@ class Transition:
                     nex = s1 + (a-1)
                     nex = min(nex, 9)
                     nex = max(nex, 0)
-                    coverage[nex,a] = 1.0
+                    coverage[s1,a] = 1.0
                     if nex == s2:
                         corr += num
                     else:
@@ -86,7 +86,7 @@ class Transition:
 
         code_count = self.state_transition.sum(dim=(1,2))
 
-        reward = 1.0 / torch.sqrt(code_count+0.1)
+        reward = torch.log(1.0 / (code_count + 0.0001))
 
         #print('reward', reward)
 
