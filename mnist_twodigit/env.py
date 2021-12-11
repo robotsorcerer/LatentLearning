@@ -49,7 +49,8 @@ class Env:
         x1 = torch.cat(self.x_lst[start_class], dim=0).unsqueeze(1)[randind1:randind1+1]
         y1 = torch.zeros(1).long() + start_class
 
-        randclass = random.randint(0,9)
+        #randclass = random.randint(0,9)
+        randclass = 9
         x2 = torch.cat(self.x_lst[randclass], dim=0).unsqueeze(1)[randind2:randind2+1]
         y2 = torch.zeros(1).long() + randclass
 

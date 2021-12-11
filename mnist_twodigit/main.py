@@ -143,7 +143,7 @@ step = 0
 
 reinit_code = False
 
-for env_iteration in range(0, 50000):
+for env_iteration in range(0, 200000):
 
     #do one step in env.  
 
@@ -164,7 +164,7 @@ for env_iteration in range(0, 50000):
         x1 = x1_
         x2 = x2_
     
-    x = torch.cat([x1*c1,0*x2*c2], dim=3)
+    x = torch.cat([x1*c1,1*x2*c2], dim=3)
 
     net.eval()
     #pick actions randomly or with policy
@@ -188,7 +188,7 @@ for env_iteration in range(0, 50000):
     print('example', y1, y1_, a1)
 
     #make x from x1,x2
-    x_ = torch.cat([x1_*c1,0*x2_*c2], dim=3)
+    x_ = torch.cat([x1_*c1,1*x2_*c2], dim=3)
 
     mybuffer.add_example(a1, y1, y1_, c1, y2, y2_, c2, x, x_, step)
 
