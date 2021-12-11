@@ -128,6 +128,7 @@ ce = nn.CrossEntropyLoss()
 net = init_model()
 opt = init_opt(net)
 
+always_random = False
 
 num_rand = 100
 ep_length = 20
@@ -167,7 +168,7 @@ for env_iteration in range(0, 50000):
 
     net.eval()
     #pick actions randomly or with policy
-    if mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.2:
+    if always_random or mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.2:
         print('random action')
         a1 = torch.randint(-1,2,size=(1,))
     else:
