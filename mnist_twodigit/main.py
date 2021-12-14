@@ -110,9 +110,10 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
     return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
 
 ncodes = 32
+genik_maxk = 19
 
 def init_model():
-    net = Classifier(ncodes=ncodes)
+    net = Classifier(ncodes=ncodes, maxk=genik_maxk)
 
     if torch.cuda.is_available():
         net = net.cuda()
@@ -135,7 +136,7 @@ ep_length = 20
 ep_rand = ep_length
 
 myenv = Env()
-mybuffer = Buffer(ep_length=ep_length, max_k=10)
+mybuffer = Buffer(ep_length=ep_length, max_k=genik_maxk)
 transition = Transition(ncodes)
 
 is_initial = True

@@ -13,20 +13,22 @@ from torchvision.utils import save_image
 
 import random
 
+import numpy as np
+
 class Encoder(nn.Module):
 
     def __init__(self, ncodes):
         super(Encoder, self).__init__()
 
         #3*32*64
-        self.enc = nn.Sequential(nn.Linear(512,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
+        self.enc = nn.Sequential(nn.Linear(512,1024), nn.LeakyReLU(), nn.Linear(1024, 64))
 
         self.qlst = []
 
         self.cutout = Cutout(1, 16)
 
         for nf in [1,8,32]:
-            self.qlst.append(Quantize(512, ncodes, nf))
+            self.qlst.append(Quantize(64, ncodes, nf))
 
         self.qlst = nn.ModuleList(self.qlst)
         
@@ -73,21 +75,21 @@ class Encoder(nn.Module):
 
 class Classifier(nn.Module):
 
-    def __init__(self, ncodes):
+    def __init__(self, ncodes, maxk):
         super(Classifier, self).__init__()
 
         self.enc = Encoder(ncodes)
 
-        self.out = nn.Sequential(nn.Dropout(0.2), nn.Linear(512*3, 1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 10))
+        self.out = nn.Sequential(nn.Dropout(0.2), nn.Linear(64*3, 1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 10))
         #self.out = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3))
 
         self.ce = nn.CrossEntropyLoss()
         self.mse = nn.MSELoss()
 
-        self.offset_embedding = nn.Embedding(12, 512)
+        self.offset_embedding = nn.Embedding(maxk + 5, 64)
 
-        self.ae_enc = nn.Sequential(nn.Dropout(0.2), nn.Linear(3*32*64,1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
-        self.ae_q = Quantize(512,1024,16)
+        self.ae_enc = nn.Sequential(nn.Dropout(0.5), nn.Linear(3*32*64,1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
+        self.ae_q = Quantize(512,128,4) #1024,16
         self.ae_dec = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3*32*64))
 
         self.cutout = Cutout(1, 16)
@@ -149,8 +151,12 @@ class Classifier(nn.Module):
 
         #print('offset embed minmax', offset_embed.min(), offset_embed.max())
 
-
         z = torch.cat([z1,z2,offset_embed],dim=1)
+
+        if False and self.training:
+            mixind = torch.randperm(z.shape[0])
+            lam = 1.0 - np.random.beta(0.5,1+0.5) #values close to 1
+            z = lam*z + (1-lam)*z[mixind]
 
         out = self.out(z)
 

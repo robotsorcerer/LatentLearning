@@ -62,6 +62,7 @@ class Buffer:
         #if indlst is None:
         #    bs = min(self.num_ex, bs)
 
+
         for k in range(0, bs):
 
             if indlst is None:
@@ -74,6 +75,7 @@ class Buffer:
             maxk = min(self.max_k, self.ep_length - step)
             maxk = min(maxk, self.num_ex - j - 1)
             maxk = max(maxk, 1)
+
 
             if klim is not None:
                 maxk = min(maxk, klim)
