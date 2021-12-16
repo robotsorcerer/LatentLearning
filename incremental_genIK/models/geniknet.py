@@ -102,9 +102,9 @@ class GenIKNet(Network):
         return contrastive_loss
 
     def compute_loss(self, z0, z1, a):
-        loss = self.coefs['L_coinv'] * self.contrastive_inverse_loss(z0, z1, a)  # zero
+        # loss = self.coefs['L_coinv'] * self.contrastive_inverse_loss(z0, z1, a)  # zero
         loss = self.coefs['L_genik'] * self.multi_step_inverse_dynamics (z0, z1, a) # multi-step inverse dynamics
-        loss += self.coefs['L_inv'] * self.inverse_loss(z0, z1, a)  # inverse model: 1
+        # loss += self.coefs['L_inv'] * self.inverse_loss(z0, z1, a)  # inverse model: 1
         return loss
 
 
