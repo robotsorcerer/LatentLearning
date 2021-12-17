@@ -49,14 +49,13 @@ class Quantize(nn.Module):
         flatten = z_e.reshape(-1, self.embedding_dim//self.groups)
         #flatten = flatten.reshape((flatten.shape[0], self.groups, self.embedding_dim//self.groups)).reshape((flatten.shape[0] * self.groups, self.embedding_dim//self.groups))
 
-        # # DeepMind def does not do this but I find I have to... ;\
-        # if self.training and self.data_initialized.item() == 0:
-        #     print('running kmeans!!') # data driven initialization for the embeddings
-        #     rp = torch.randperm(flatten.size(0))
-        #     # kd = kmeans2(flatten[rp[:20000]].data.cpu().numpy(),    self.n_embed,   minit='points')
-        #     kd = kmeans2(flatten[rp[:2]].data.cpu().numpy(),    self.n_embed,   minit='points')
-        #     self.embed.weight.data.copy_(torch.from_numpy(kd[0]))
-        #     self.data_initialized.fill_(1)
+        # DeepMind def does not do this but I find I have to... ;\
+        if self.training and self.data_initialized.item() == 0:
+            print('running kmeans!!') # data driven initialization for the embeddings
+            rp = torch.randperm(flatten.size(0))
+            kd = kmeans2(flatten[rp[:20000]].data.cpu().numpy(),    self.n_embed,   minit='points')
+            self.embed.weight.data.copy_(torch.from_numpy(kd[0]))
+            self.data_initialized.fill_(1)
 
 
         dist = (    flatten.pow(2).sum(1, keepdim=True) - 2 * flatten @ self.embed.weight.t() + self.embed.weight.pow(2).sum(1, keepdim=True).t())

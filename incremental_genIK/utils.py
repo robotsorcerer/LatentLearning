@@ -186,3 +186,21 @@ def states_pos_to_int(test_s0, test_s1, rows, cols):
         test_s1_positions[i] = gridtostate[tuple(test_s1[i])]
 
     return test_s0_positions, test_s1_positions, statetogrid
+
+
+
+def position_to_integer_convert(s0, s1, rows, cols):
+    gridtostate = {}
+    statetogrid = {}
+    count = 0
+    for y in range(rows):
+        for x in range(cols):
+            gridtostate[(x, y)] = count
+            statetogrid[count] = (x, y)
+            count += 1
+
+    curr_state = gridtostate[  tuple(s0)  ]
+    next_state = gridtostate[  tuple(s1)   ]
+
+    return curr_state, next_state
+
