@@ -153,7 +153,7 @@ class Classifier(nn.Module):
 
         z = torch.cat([z1,z2,offset_embed],dim=1)
 
-        if False and self.training:
+        if self.training:
             mixind = torch.randperm(z.shape[0])
             lam = 1.0 - np.random.beta(0.5,1+0.5) #values close to 1
             z = lam*z + (1-lam)*z[mixind]

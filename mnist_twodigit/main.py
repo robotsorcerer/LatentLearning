@@ -109,7 +109,7 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
 
     return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
 
-ncodes = 32
+ncodes = 128
 genik_maxk = 19
 
 def init_model():
