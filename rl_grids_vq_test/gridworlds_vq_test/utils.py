@@ -15,7 +15,7 @@ create_folder = lambda f: [ os.makedirs(f) if not os.path.exists(f) else False ]
 
 
 class Logger(object):
-      def __init__(self, args, experiment_name='', environment_name='', type_decoder='', obs_type = '', use_exo ='', groups = '', folder='./results'):
+      def __init__(self, args, experiment_name='', environment_name='', type_decoder='',use_exo ='', groups = '', folder='./results'):
             """
             Original: Original implementation of the algorithms
             HDR: Used Qhat
@@ -25,7 +25,7 @@ class Logger(object):
             """
             self.rewards = []
               
-            self.save_folder = os.path.join(folder, experiment_name, type_decoder, obs_type, use_exo, environment_name, groups, time.strftime('%y-%m-%d-%H-%M-%s'))
+            self.save_folder = os.path.join(folder, experiment_name, type_decoder, use_exo, environment_name, groups, time.strftime('%y-%m-%d-%H-%M-%s'))
 
             create_folder(self.save_folder)
             self.returns_critic_loss = []

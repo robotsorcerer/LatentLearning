@@ -149,12 +149,16 @@ class RepNet(Network):
     def compute_loss(self, x0, z0, z1, a, d, representation_obj):
         if representation_obj == 'genik':
             loss = self.coefs['L_genik'] * self.multi_step_inverse_dynamics (z0, z1, a)
+            
         elif representation_obj == 'inverse':
             loss = self.coefs['L_inv'] * self.multi_step_inverse_dynamics(z0, z1, a) 
+
         elif representation_obj == 'contrastive':
             loss = self.coefs['L_coinv'] * self.contrastive_inverse_loss(z0, z1, a) 
+
         elif representation_obj == "driml":
             loss = self.coefs['L_driml'] * self.driml_loss(z0, z1, a)
+
         elif representation_obj == 'autoencoder':
             loss = self.coefs['L_ae'] * self.autoencoder_loss(x0, z0, a) ## todo for VAE
         else : 

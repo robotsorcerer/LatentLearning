@@ -98,6 +98,13 @@ parser.add_argument('--groups', type=int, default=1,
 
 parser.add_argument('--n_embed', type=int, default=10,
                     help='No. of embeddings')
+
+parser.add_argument('--n_samples', type=int, default=20000,
+                    help='Number of samples')
+
+parser.add_argument('--horizon', type=int, default=20000,
+                    help='Horizon length')
+
 # Clustering layer
 parser.add_argument('--use_proto', action='store_true',
                     help='Use prototypes-based discritization after the phi network')
@@ -109,8 +116,6 @@ parser.add_argument("--m_step_mode", type=str, default='random_future', choices 
 parser.add_argument("--noise_type", type=str, default=None, choices=[None, 'ising', 'ellipse', 'tv'], help='Exo noise to observations')
 
 parser.add_argument("--noise_stationarity", type=str, default='stationary', choices=['non-stationary', 'stationary'], help='resample noise every step?')
-
-parser.add_argument("--type_obs", type=str, default='heatmap', help='image | image_exo_noise | heatmap | heatmap_exo_noise')
 
 parser.add_argument("--folder", type=str, default='./results/')
 
@@ -162,8 +167,7 @@ else:
 if args.use_logger:
     file_name = "%s_%s_%s" % (args.type, env_name, str(args.seed))
     exogenous = args.noise_type
-    obs_type = 'rgb_image'
-    logger = Logger(args, experiment_name=args.tag, environment_name=env_name, type_decoder=args.type,  obs_type=obs_type, use_exo=exogenous, groups = 'groups_' + str(args.groups) + '_embed_' + str(args.n_embed), folder=args.folder)
+    logger = Logger(args, experiment_name=args.tag, environment_name=env_name, type_decoder=args.obj, use_exo=args.noise_stationarity, groups = 'groups_' + str(args.groups) + '_embed_' + str(args.n_embed), folder=args.folder)
     logger.save_args(args)
     print('Saving to', logger.save_folder)
 else:
@@ -177,12 +181,12 @@ representation_obj = args.obj
 cmap = None
 
 #% ------------------ Build Deterministic Tabular MDP Model for Planning ------------------
-horizon=200 ### TODO 
+horizon=args.horizon ### TODO 
 model = DetTabularMDPBuilder(actions=env.actions, horizon=horizon, gamma=1.0)  
 
 #% ------------------ Generate experiences ------------------
 # n_samples = 20000
-n_samples = 200
+n_samples = args.n_samples
 
 start_state = env.get_state()
 states = [start_state]
@@ -196,7 +200,7 @@ obs, obs_noisy = env.get_obs(change_noise=args.noise_stationarity=='non-stationa
 obses = [obs_noisy]
 obses_noiseless = [obs]
 
-for step in range(horizon):
+for step in range(n_samples):
     a = np.random.choice(env.actions)
     next_state, reward, _ = env.step(a)
 
@@ -411,27 +415,8 @@ def test_rep(fnet, step,  test_s0, test_s1, test_s0_positions, test_s1_positions
                     logger.save()
             else:
                 zq_loss = 0.
-            # yapf: disable
-            loss_info = {
-                'step': step,
-                'L_inv': fnet.inverse_loss(z0, z1, test_a).numpy().tolist(),
-                'L_coinv': fnet.contrastive_inverse_loss(z0, z1, test_a).numpy().tolist(),
-                'L_vq': zq_loss,#fnet.compute_entropy_loss(z0, z1, test_a).numpy().tolist(),
-                'L': (fnet.compute_loss(z0, z1, test_a, torch.zeros((2 * len(z0)))) + zq_loss).numpy().tolist(),
-                'MI': MI(test_s0, z0.numpy()) / MI_max, 
-                'type1_error': type1_err,
-                'type2_error': type2_err
-            }
 
-
-    json_str = json.dumps(loss_info)
-    log.write(json_str + '\n')
-    log.flush()
-
-    text = '\n'.join([key + ' = ' + str(val) for key, val in loss_info.items()])
-
-    results = [z0, z1, z1, test_a, test_a]
-    return [r.numpy() for r in results] + [text], step, type1_err, type2_err, ind_0, ind_1
+    return step, type1_err, type2_err, ind_0, ind_1
 
 
 
@@ -499,7 +484,7 @@ for frame_idx in tqdm(range(n_frames + 1)):
         fnet.use_vq = args.use_vq
         fnet.train_batch(tx0, tx1, ta, idx, representation_obj)
 
-    test_results, step, type1_err, type2_err, z_discrete0, z_discrete1 = test_rep(fnet, frame_idx * n_updates_per_frame,  test_s0, test_s1, test_s0_positions, test_s1_positions, frame_idx, n_frames)
+    step, type1_err, type2_err, z_discrete0, z_discrete1 = test_rep(fnet, frame_idx * n_updates_per_frame,  test_s0, test_s1, test_s0_positions, test_s1_positions, frame_idx, n_frames)
 
 
 
