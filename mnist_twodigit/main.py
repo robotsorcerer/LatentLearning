@@ -27,8 +27,12 @@ from torchvision.utils import save_image
 from encoder import Classifier
 
 from env import Env
+from buffer import Buffer
+from transition import Transition
 
 import statistics
+
+from value_iteration import value_iteration
 
 bs = 100
 
@@ -59,165 +63,215 @@ train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
 
 #Given (cat(x1,x2), cat(x1,x2)_ --> classify a.  ).  
 
-def transition(x,y,y_,myenv):
-    x_new = x*0.0
 
-    for j in range(bs):
-        x_choices = myenv.x_lst[y_[j].item()]
-        
-        x_new[j] = x_choices[random.randint(0, len(x_choices)-1)]
+def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_ind=None, klim=None): 
 
-    return x_new
+    a1, y1, y1_, x_last, x_new, k_offset = mybuffer.sample_batch(bs, batch_ind, klim=klim)
 
 
-ncodes = 100
+    if torch.cuda.is_available():
+        x_last.cuda()
+        x_new.cuda()
+        a1.cuda()
+        y1.cuda()
+        y1_.cuda()
+        model.cuda()
 
-net = Classifier(ncodes=ncodes)
+    loss = 0.0
+    for k_ind in [2,1,0]:
+        xl_use = x_last*1.0
+        xn_use = x_new*1.0
 
-if torch.cuda.is_available():
-    net = net.cuda()
+
+
+        out, q_loss, ind_last, ind_new, z1, z2 = model(xl_use, xn_use, do_quantize = True, reinit_codebook = reinit_codebook, k=k_ind, k_offset=k_offset)
+
+        #if k_ind == 0:
+        #    pl = model.proj_loss(z1, xl_use)
+        #    pl2 = model.proj_loss(z2, xn_use)
+        #    loss += pl
+        #    loss += pl2
+
+        loss += ce(out, a1+1)
+        loss += q_loss
+
+        #print(k_ind, loss, q_loss)
+
+    #if print_:
+    #    print('a', a1)
+    #    print('out', out.shape, out)
+        #save_image(xl_use, 'xlast.png')
+        #save_image(xn_use, 'xnext.png')
+
+
+    ind_last = ind_last.flatten()
+    ind_new = ind_new.flatten()
+
+    return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
+
+ncodes = 128
+genik_maxk = 19
+
+def init_model():
+    net = Classifier(ncodes=ncodes, maxk=genik_maxk)
+
+    if torch.cuda.is_available():
+        net = net.cuda()
+
+    return net
+
+def init_opt(net):
+    opt = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.9,0.999))
+    return opt
 
 ce = nn.CrossEntropyLoss()
 
-opt = torch.optim.Adam(net.parameters(), lr=0.0001, betas=(0.0,0.999))
+net = init_model()
+opt = init_opt(net)
+
+always_random = False
+
+num_rand = 100
+ep_length = 20
+ep_rand = ep_length
 
 myenv = Env()
+mybuffer = Buffer(ep_length=ep_length, max_k=genik_maxk)
+transition = Transition(ncodes)
 
+is_initial = True
+step = 0
 
-for epoch in range(0, 200):
+reinit_code = False
 
+for env_iteration in range(0, 200000):
+
+    #do one step in env.  
+
+    if step == ep_length:
+        print('reinit env')
+        is_initial=True
+        step = 0
+        ep_rand = random.randint(ep_length//2, ep_length) #after this step in episode follow random policy
+    else:
+        step += 1
+
+    if is_initial:
+        y1,c1,y2,c2,x1,x2 = myenv.initial_state()
+        is_initial = False
+    else:
+        y1 = y1_
+        y2 = y2_
+        x1 = x1_
+        x2 = x2_
+    
+    x = torch.cat([x1*c1,1*x2*c2], dim=3)
+
+    net.eval()
+    #pick actions randomly or with policy
+    if always_random or mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.2:
+        print('random action')
+        a1 = torch.randint(-1,2,size=(1,))
+    else:
+        print('use policy to pick action!')
+        reward = transition.select_goal()
+        init_state = net.encode((x*1.0).cuda())
+        print('init state abstract', init_state)
+        #a1 = transition.select_policy(init_state.cpu().item(), reward)
+        a1 = value_iteration(transition.state_transition, ncodes, init_state, reward, max_iter=ep_length)
+        a1 = torch.Tensor([a1]).long()
+        print('a1', a1)
+
+    a2 = torch.randint(-1,2,size=(1,))
+
+    x1_, x2_, y1_, y2_ = myenv.transition(a1,a2,y1,y2,c1,c2)
+
+    print('example', y1, y1_, a1)
+
+    #make x from x1,x2
+    x_ = torch.cat([x1_*c1,1*x2_*c2], dim=3)
+
+    mybuffer.add_example(a1, y1, y1_, c1, y2, y2_, c2, x, x_, step)
+
+    print('my buffer numex', mybuffer.num_ex)
+
+    if mybuffer.num_ex < num_rand or mybuffer.num_ex % 100 != 0:
+        continue
+
+    #net = init_model()
+    opt = init_opt(net)
+    transition.reset()
+
+    net.train()
     accs = []
-    state_transition = torch.zeros(ncodes,3,ncodes)
+    if mybuffer.num_ex > 150:
+        num_iter = 500
+    else:
+        num_iter = 2000
+    for iteration in range(0,num_iter):
 
-    tr_lst = []
-    trn_lst = []
-    for j in range(0,ncodes):
-        tr_lst.append([])
-        trn_lst.append([])
+        print_ = iteration==num_iter-1
 
-    iteration = 0
-
-    for (x1,y1),(x2,y2) in zip(train_loader, train_loader):
-
-        iteration += 1
-        x1 = x1
-        y1 = y1
-
-        if epoch < 3:
-            x1 = torch.cat(myenv.x_lst[5], dim=0).unsqueeze(1)
-            y1 = y1*0 + 5
-
-        x2 = x2
-        y2 = y2
-
-        if torch.cuda.is_available():
-            x1 = x1.cuda()
-            y1 = y1.cuda()
-            x2 = x2.cuda()
-            y2 = y2.cuda()
-
-        x1 = x1.repeat(1,3,1,1)
-        x2 = x2.repeat(1,3,1,1)
-
-        #c1 = torch.rand(bs,3,1,1)
-        #c2 = torch.rand(bs,3,1,1)
-        c1 = torch.ones(bs,3,1,1)
-        c2 = torch.ones(bs,3,1,1)
-
-        a1 = torch.randint(-1,2,size=(bs,))
-        a2 = torch.randint(-1,2,size=(bs,))
-
-        if torch.cuda.is_available():
-            c1 = c1.cuda()
-            c2 = c2.cuda()
-            a1 = a1.cuda()
-            a2 = a2.cuda()
-
-        y1_ = torch.clamp(y1 + a1,0,9)
-        y2_ = torch.clamp(y2 + a2,0,9)
-
-        x1_new = transition(x1, y1, y1_,myenv)
-        x2_new = transition(x2, y2, y2_,myenv)        
-
-        x_last = torch.cat([x1*c1,x2*c2], dim=3)
-        x_new = torch.cat([x1_new*c1,x2_new*c2],dim=3)
-
-        loss = 0.0
-
-        for k_ind in [2,1,0]:
-            xl_use = x_last*1.0
-            xn_use = x_new*1.0
-            out, q_loss, ind_last, ind_new = net(xl_use, xn_use, do_quantize = (epoch >= 0), reinit_codebook = False, k=k_ind)
-            loss += ce(out, a1+1)
-            loss += q_loss
+        do_quantize = iteration >= 500 or mybuffer.num_ex > 150
+        
+        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, do_quantize, reinit_code, 128, None, None)
 
         opt.zero_grad()
         loss.backward()
         opt.step()
 
         pred = (out.argmax(1) - 1)
+        a1 = a1.cuda()
+        pred = pred.cuda()
+
+    net.eval()
+
+    for k in range(0, mybuffer.num_ex, 100):
+
+        ex_lst = list(range(k,min(mybuffer.num_ex, k+100)))
+
+        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, True, False, len(ex_lst), ex_lst, klim=1)        
+
+        pred = (out.argmax(1) - 1)
+        a1 = a1.cuda()
+        pred = pred.cuda()
         accs.append(torch.eq(pred, a1).float().mean().item())
+        transition.update(ind_last, ind_new, a1, tr_y1, tr_y1_)
 
 
-    if ind_last is not None:
-        ind_last = ind_last.flatten()
-        ind_new = ind_new.flatten()
-        for j in range(0, ind_last.shape[0]):
-            state_transition[ind_last.flatten()[j], a1[j]+1, ind_new.flatten()[j]] += 1
+    accs_all = []
+    for k in range(0, mybuffer.num_ex, 100):
 
-        for j in range(0,ncodes):
-            tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
-            trn_lst[j] += y1_[ind_new.flatten()==j].data.cpu().numpy().tolist()
+        ex_lst = list(range(k,min(mybuffer.num_ex, k+100)))
 
-    if ind_last is not None:
-        for j in range(0,ncodes):
-            tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
-            trn_lst[j] += y1_[ind_new.flatten()==j].data.cpu().numpy().tolist()
+        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, koffset = update_model(net, mybuffer, print_, True, False, len(ex_lst), ex_lst, klim=None)
 
-            if len(tr_lst[j]) > 0:
-                print('last', j, tr_lst[j], 'mode', statistics.mode(tr_lst[j]))
-            if len(trn_lst[j]) > 0:
-                print('next', j, trn_lst[j], 'mode', statistics.mode(trn_lst[j]))
+        pred = (out.argmax(1) - 1)
+        a1 = a1.cuda()
+        pred = pred.cuda()
+        accs_all.append(torch.eq(pred, a1).float().mean().item())
 
-    print('loss', epoch, loss)
 
-    if ind_last is not None:
-        ind_last = ind_last.flatten()
-        ind_new = ind_new.flatten()
+        if False:
+            print('genik')
+            for j in range(0,koffset.shape[0]):
+                print('offsets', koffset[j])
+                print('action', (a1)[j])
+                print('last_y', tr_y1[j])
+                print('new_y', tr_y1_[j])
+                print('last_ind', ind_last[j])
+                print('new_ind', ind_new[j])
+                print('------------------------------')
+ 
 
-        if epoch % 2 == 0:
-            print('y last', y1)
-            print('last', ind_last)
-            print('a1', a1)
-            print('next', ind_new)
-            print('y next', y1_)
-
-            mode_lst = []
-            moden_lst = []
-            for j in range(0,ncodes):
-                if len(tr_lst[j]) == 0:
-                    mode_lst.append(-1)
-                else:
-                    mode_lst.append(statistics.mode(tr_lst[j]))#torch.Tensor(tr_lst[j]).mode()[0])
-                
-                if len(trn_lst[j]) == 0:
-                    moden_lst.append(-1)
-                else:
-                    moden_lst.append(statistics.mode(trn_lst[j]))#torch.Tensor(trn_lst[j]).mode()[0])
-                
-
-            print('state transition matrix!')
-            for a in range(0,3):
-                for k in range(0,state_transition.shape[0]):
-                    if state_transition[k,a].sum().item() > 0:
-                        print(mode_lst[k], a-1, 'argmax', moden_lst[state_transition[k,a].argmax()], 'num', state_transition[k,a].sum().item())
+    transition.print_codes()
+    transition.print_modes()
+    print('loss', env_iteration, loss)
+    print('acc-1', sum(accs)/len(accs))
+    print('acc-k', sum(accs_all)/len(accs_all))
     
-
-            #save_image(x_last, '1.png')
-            #save_image(x_new, '2.png')
+    #raise Exception('done')    
 
 
-    print('acc', sum(accs)/len(accs))
 
-    
-        
+
