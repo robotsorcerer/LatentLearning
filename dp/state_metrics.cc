@@ -4,6 +4,7 @@
 #include <vector>
 #include <string.h>
 #include <math.h>
+#include <bits/stdc++.h>
 
 using namespace std;
 
@@ -149,6 +150,102 @@ void sss_and_dsm(vector<state_explanation>& learned_by_ground, vector<state_expl
   cout << "DSM (different state merged) = " << impurity(learned_by_ground) << endl;
 }
 
+bool most_probable_first(pair<string,float>& e1, pair<string,float>& e2)
+{
+  return e1.second > e2.second;
+}
+
+state_distribution find_ground_states(const string& state, const vector<state_explanation>& learned_by_ground)
+{
+  for (auto& se : learned_by_ground)//this could be constant instead of linear
+    if (se.state == state)
+      return se.alt_state_probability;
+  cerr << "badness! search for state '" << state << "' failed!" << endl;
+  state_distribution ret;
+  return ret;
+}
+
+void add_in(state_distribution& target, const state_distribution& source, float probability)
+{//could be more efficient with a sortable state.
+  for(auto& ssp : source)
+    {
+      bool not_added = true;
+      for(auto& tsp : target)
+	if (tsp.first == ssp.first)
+	  {
+	    tsp.second += ssp.second*probability;
+	    not_added = false;
+	    break;
+	  }
+      if (not_added)
+	{
+	  target.push_back(ssp);
+	  target.back().second *= probability;
+	}
+    }
+}
+
+float difference(const state_distribution& sd1, const state_distribution& sd2)
+{
+  double total = 0.;
+  for (auto& sp1 : sd1)
+    {
+      bool not_diffed = true;
+      for (auto& sp2 : sd2)
+	if (sp1.first == sp2.first)
+	  {
+	    total += fabs(sp1.second - sp2.second);
+	    not_diffed = false;
+	    break;
+	  }
+      if (not_diffed)
+	total += sp1.second;
+    }
+  return total;
+}
+
+void transition_difference(vector<action_transition>& learned_transitions, vector<action_transition>& ground_transitions, vector<state_explanation>& learned_by_ground)
+{
+  //Every learned state induces a distribution over ground states via learned_by_ground.
+  //For each learned state action, we have a distribution over learned next states.
+  //The distribution over next states can be translated into a distribution over ground states using
+  //learned_by_ground.  Doing that provides a p_learned (s'_ground | s_learned,a).
+  //Alternatively, we can look at E_{s_ground ~ s_learned} p_ground(s'_ground | s_ground, a).
+  //This gives us two distributions over s'_ground, which we can take the l_1 difference between.
+  //And then take the uniform average over all s_learned,a.
+  double total = 0.;
+  for (auto& at : learned_transitions)
+    {
+      state_distribution p_learned_of_ground;
+      for (auto& sp : at.next_state_probability)
+	{// For each next learned state, find its distribution over ground states and add it in.
+	  state_distribution ground_state_distribution = find_ground_states(sp.first, learned_by_ground);
+	  add_in(p_learned_of_ground, ground_state_distribution, sp.second);
+	}
+      state_distribution ground_explanation_of_state = find_ground_states(at.state, learned_by_ground);
+      
+      state_distribution p_ground_of_ground;
+      for (auto& sp : ground_explanation_of_state)
+	{
+	  bool not_added_in = true;
+	  for (auto& at2 : ground_transitions) // for each ground state, find matching next state distribution
+	    {
+	      if (sp.first == at2.state && at.action == at2.action)
+		{
+		  add_in(p_ground_of_ground, at2.next_state_probability, sp.second);
+		  not_added_in = false;
+		  break;
+		}
+	    }
+	  if (not_added_in)
+	    cout << "badness, can't find match for " << sp.first << endl;
+	}
+      total += difference(p_learned_of_ground, p_ground_of_ground);
+    }
+
+  cout << "Dynamics difference = " << total / learned_transitions.size() << endl;
+}
+  
 int main(int argc, char *argv[])
 {
   FILE *stream;
@@ -240,6 +337,7 @@ int main(int argc, char *argv[])
 
   //learned+ground metrics
   sss_and_dsm(learned_by_ground, ground_by_learned);
+  transition_difference(learned_transitions, ground_transitions, learned_by_ground);
   
   exit(EXIT_SUCCESS);
 }
