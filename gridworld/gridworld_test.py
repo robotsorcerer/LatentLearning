@@ -3,10 +3,13 @@ import matplotlib.pyplot as plt
 
 from gridworld.gridworld_wrapper import GridWorldWrapper
 
-env = GridWorldWrapper.make_env("gridworld1")
+env = GridWorldWrapper.make_env("gridworld2")
 
 plt.ion()
 obs, info = env.reset()
+plt.imshow(obs)
+plt.show()
+plt.pause(0.5)
 
 for h in range(0, 100):
     action = random.randint(0, 4)
