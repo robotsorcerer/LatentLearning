@@ -1,3 +1,4 @@
+
 import torch
 import torch.nn as nn
 
@@ -163,6 +164,13 @@ class Classifier(nn.Module):
         loss = ae_loss_1 + ae_loss_2 + el_1 + el_2
 
         return out, loss, ind_1, ind_2, z1, z2
+
+
+
+
+
+
+
 
 
 
