@@ -248,7 +248,7 @@ void transition_difference(vector<action_transition>& learned_transitions, vecto
 }
 
 void graph_dynamics(vector<action_transition> learned_transitions)
-{
+{//see here: https://graphviz.org/pdf/libguide.pdf for details
   Agraph_t *g;
   GVC_t *gvc;
   /* set up a graphviz context */
