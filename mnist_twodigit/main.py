@@ -109,8 +109,8 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
 
     return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
 
-ncodes = 128
-genik_maxk = 19
+ncodes = 32
+genik_maxk = 29
 
 def init_model():
     net = Classifier(ncodes=ncodes, maxk=genik_maxk)
@@ -132,12 +132,13 @@ opt = init_opt(net)
 always_random = False
 
 num_rand = 100
-ep_length = 20
+ep_length = 30
 ep_rand = ep_length
 
 myenv = Env()
 mybuffer = Buffer(ep_length=ep_length, max_k=genik_maxk)
 transition = Transition(ncodes)
+transition.reset()
 
 is_initial = True
 step = 0
@@ -165,17 +166,17 @@ for env_iteration in range(0, 200000):
         x1 = x1_
         x2 = x2_
     
-    x = torch.cat([x1*c1,1*x2*c2], dim=3)
+    x = torch.cat([x1*c1,0*x2*c2], dim=3)
 
     net.eval()
     #pick actions randomly or with policy
-    if always_random or mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.2:
+    init_state = net.encode((x*1.0).cuda())
+    if always_random or mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.1:
         print('random action')
         a1 = torch.randint(-1,2,size=(1,))
     else:
         print('use policy to pick action!')
         reward = transition.select_goal()
-        init_state = net.encode((x*1.0).cuda())
         print('init state abstract', init_state)
         #a1 = transition.select_policy(init_state.cpu().item(), reward)
         a1 = value_iteration(transition.state_transition, ncodes, init_state, reward, max_iter=ep_length)
@@ -186,10 +187,14 @@ for env_iteration in range(0, 200000):
 
     x1_, x2_, y1_, y2_ = myenv.transition(a1,a2,y1,y2,c1,c2)
 
+    
     print('example', y1, y1_, a1)
 
     #make x from x1,x2
-    x_ = torch.cat([x1_*c1,1*x2_*c2], dim=3)
+    x_ = torch.cat([x1_*c1,0*x2_*c2], dim=3)
+
+    next_state = net.encode((x_*1.0).cuda())
+    transition.update(init_state, next_state, a1, y1, y1_)
 
     mybuffer.add_example(a1, y1, y1_, c1, y2, y2_, c2, x, x_, step)
 

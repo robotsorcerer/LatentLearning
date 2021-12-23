@@ -29,7 +29,7 @@ def one_step_lookahead(state, V, discount, probs, n_actions, n_states, rewards):
         #    action_values[action] += prob * (reward + discount * V[next_state])
 
         for next_state in range(0, n_states):
-            reward = rewards[next_state]
+            reward = rewards[action, next_state]
             prob = probs[state, action, next_state]
             action_values[action] += prob * (reward + discount * V[next_state])
             #print('prob/reward', prob, reward)
@@ -115,7 +115,7 @@ def value_iteration(t_counts, n_states, eval_state, rewards, discount=1e-1, thet
         normed = normed / normed.sum()
         best_action = np.random.choice([-1,0,1], 1, p=normed)[0]
     else:
-        action_value += np.random.normal(0,0.00001,size=(3,))
+        action_value += np.random.normal(0,0.0001,size=(3,))
         best_action = np.argmax(action_value)-1
 
     #return policy, V
