@@ -1,0 +1,43 @@
+#This is an example output file.  Anything after a # is a comment.
+#The first line is just the marginal occupancy of learned states.  The format is:
+#<total count> <learned state>:<marginal> <learned state>:<marginal> ...
+#If the marginal is zero, it should be skipped.
+#Occupancy
+672 0:.15 1:0.05 2:0.1 3:0.12 4:0.08 5:0.1 6:0.1 7:0.1 8:0.1 9:0.1
+
+#Note extra newline to indicate end of table.  This is used for every end of table
+#The next table is the learned state transition.  Each line is specified as:
+#<action> <learned state> <learned next state>:<probability> <learned next state>:<probability> ...
+#probability zero learned next states should not be specified.  Example:
+#learned state transition table
+1 5 6:0.95 7:0.05
+2 5 5:1
+3 5 4:0.6 3:0.3 2:0.1
+1 4 5:1
+2 4 4:1
+3 4 3:1
+#etc...
+#The next 2 tables are optional and exactly the same as the previous, except for ground states instead of learned states. For example:
+#learned state transition table
+672 0:.1 1:0.1 2:0.1 3:0.12 4:0.08 5:0.1 6:0.1 7:0.1 8:0.1 9:0.1
+
+#ground state transition table
+1 5 6:1
+2 5 5:1
+3 5 4:1
+1 4 5:1
+2 4 4:1
+3 4 3:1
+#etc...
+#The last two tables connect learned states to ground states and vice-versa.  Format:
+#<learned state> <ground state>:<probability> <ground state>:<probability> ...  Example:
+#learned state explanation table
+1 5:0.9 3:0.1
+2 6:1
+3 7:0.5 6:0.5
+#etc...  The vice versa for the ground state is next.
+#ground state explanation table
+1 4:0.3 8:0.7
+2 3:0.6 9:0.4
+3 1:1
+#etc...
