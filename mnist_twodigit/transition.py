@@ -84,9 +84,9 @@ class Transition:
 
     def select_goal(self):
 
-        code_count = self.state_transition.sum(dim=(1,2))
+        code_count = self.state_transition.sum(dim=(0))
 
-        reward = torch.log(1.0 / (code_count + 0.0001))
+        reward = torch.sqrt(1.0 / (code_count + 0.00001))
 
         #print('reward', reward)
 
