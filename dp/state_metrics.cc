@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include <bits/stdc++.h>
+#include <gvc.h>
 
 using namespace std;
 
@@ -58,16 +59,6 @@ void print_marginal(const marginal& m)
   cout << m.count;
   print_state_distribution(m.state_probability);
   cout << endl;
-}
-
-// max_elements log (1/probability)
-void min_entropy(const marginal& m)
-{
-  float min_value = 0.;
-  for (auto& sp : m.state_probability)
-    if (log(1. / sp.second) > min_value)
-      min_value = log(1. / sp.second);
-  cout << "minimum entropy = " << min_value << endl;
 }
 
 struct action_transition
@@ -124,6 +115,16 @@ void print_state_explanations(const vector<state_explanation>& ses)
   for (auto& se : ses)
     print_state_explanation(se);
   cout << endl;
+}
+
+// max_elements log (1/probability)
+void min_entropy(const marginal& m)
+{
+  float min_value = 0.;
+  for (auto& sp : m.state_probability)
+    if (log(1. / sp.second) > min_value)
+      min_value = log(1. / sp.second);
+  cout << "minimum entropy = " << min_value << endl;
 }
 
 double impurity(vector<state_explanation>& ses)
@@ -245,7 +246,47 @@ void transition_difference(vector<action_transition>& learned_transitions, vecto
 
   cout << "Dynamics difference = " << total / learned_transitions.size() << endl;
 }
-  
+
+void graph_dynamics(vector<action_transition> learned_transitions)
+{
+  Agraph_t *g;
+  GVC_t *gvc;
+  /* set up a graphviz context */
+  gvc = gvContext();
+  /* parse command line args - minimally argv[0] sets layout engine */
+  char* args[] = { (char*)"dot", (char*)"-Tgif", (char*)"-ovisualization.gif" };
+  gvParseArgs(gvc, sizeof(args)/sizeof(char*), args);
+  /* Create a simple digraph */
+  g = agopen((char*)"g", Agdirected, nullptr);
+  vector<Agnode_t*> nodes;
+  for (auto& ast : learned_transitions)
+    {
+      Agnode_t *state_node = agnode(g,(char*)ast.state.c_str(),1);
+      /* Set an attribute - in this case one that affects the visible rendering */
+      agsafeset(state_node, (char*)"color", (char*)"red", (char*)"");
+      string state_action = ast.state+ast.action;
+      Agnode_t *state_action_node = agnode(g,(char*)state_action.c_str(),1);
+      agsafeset(state_action_node, (char*)"color", (char*)"green", (char*)"");
+      agedge(g,state_node, state_action_node, 0, 1);
+      for (auto& sp : ast.next_state_probability)
+	{
+	  Agnode_t *next_state_node = agnode(g,(char*)sp.first.c_str(),1);
+	  agsafeset(next_state_node, (char*)"color", (char*)"red", (char*)"");
+	  agedge(g,state_action_node,next_state_node,nullptr,1);
+	}
+    }
+  /* Compute a layout using layout engine from command line args */
+  gvLayoutJobs(gvc, g);
+  /* Write the graph according to -T and -o options */
+  gvRenderJobs(gvc, g);
+  /* Free layout data */
+  gvFreeLayout(gvc, g);
+  /* Free graph structures */
+  agclose(g);
+  /* close output file, free context, and return number of errors */
+  gvFreeContext(gvc);
+}
+
 int main(int argc, char *argv[])
 {
   FILE *stream;
@@ -333,9 +374,13 @@ int main(int argc, char *argv[])
   print_state_explanations(ground_by_learned);
   */
   //learned-only metrics
+  cout << "learned state ";
   min_entropy(learned_marginals);
-
+  graph_dynamics(learned_transitions);
+  
   //learned+ground metrics
+  cout << "ground state ";
+  min_entropy(ground_marginals);
   sss_and_dsm(learned_by_ground, ground_by_learned);
   transition_difference(learned_transitions, ground_transitions, learned_by_ground);
   
