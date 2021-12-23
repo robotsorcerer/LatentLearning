@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from gridworld.gridworld_wrapper import GridWorldWrapper
 
-env = GridWorldWrapper.make_env("gridworld2")
+env = GridWorldWrapper.make_env("twogrids")
 
 plt.ion()
 obs, info = env.reset()

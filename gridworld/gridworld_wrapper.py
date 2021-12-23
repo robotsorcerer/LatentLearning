@@ -8,6 +8,7 @@ from gym_minigrid.wrappers import RGBImgPartialObsWrapper, ImgObsWrapper
 
 from gridworld.gridworld1 import GridWorld1
 from gridworld.gridworld2 import GridWorld2
+from gridworld.twogrids import TwoGrids
 
 
 class GridWorldWrapper:
@@ -254,6 +255,9 @@ class GridWorldWrapper:
 
         elif env_name == "gridworld2":
             base_env = GridWorld2(config)
+
+        elif env_name == "twogrids":
+            base_env = TwoGrids(config)
 
         else:
             raise NotImplementedError("Environment %s not found" % env_name)
