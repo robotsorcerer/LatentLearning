@@ -254,25 +254,32 @@ void graph_dynamics(vector<action_transition> learned_transitions)
   /* set up a graphviz context */
   gvc = gvContext();
   /* parse command line args - minimally argv[0] sets layout engine */
-  char* args[] = { (char*)"dot", (char*)"-Tgif", (char*)"-ovisualization.gif" };
+  char* args[] = { (char*)"neato", (char*)"-Tgif", (char*)"-ovisualization.gif" };
   gvParseArgs(gvc, sizeof(args)/sizeof(char*), args);
   /* Create a simple digraph */
   g = agopen((char*)"g", Agdirected, nullptr);
+  //  agsafeset(g, (char*)"nodesep", (char*)"0.75", (char*)"0.75");
   vector<Agnode_t*> nodes;
   for (auto& ast : learned_transitions)
     {
-      Agnode_t *state_node = agnode(g,(char*)ast.state.c_str(),1);
+      Agnode_t* state_node = agnode(g,(char*)ast.state.c_str(),1);
       /* Set an attribute - in this case one that affects the visible rendering */
-      agsafeset(state_node, (char*)"color", (char*)"red", (char*)"");
-      string state_action = ast.state+ast.action;
-      Agnode_t *state_action_node = agnode(g,(char*)state_action.c_str(),1);
+      agsafeset(state_node, (char*)"color", (char*)"red", (char*)"red");
+      agsafeset(state_node, (char*)"fontsize", (char*)"8", (char*)"8");
+      agsafeset(state_node, (char*)"height", (char*)"0.25", (char*)"0.25");
+      agsafeset(state_node, (char*)"width", (char*)"0.25", (char*)"0.25");
+      string state_action = ast.state+"_"+ast.action;
+      Agnode_t* state_action_node = agnode(g,(char*)state_action.c_str(),1);
       agsafeset(state_action_node, (char*)"color", (char*)"green", (char*)"");
-      agedge(g,state_node, state_action_node, 0, 1);
+      Agedge_t* e = agedge(g,state_node, state_action_node, 0, 1);
+      agsafeset(e, (char*)"len", (char*)"0.5", (char*)"0.5");
+      agsafeset(e, (char*)"style", (char*)"filled", (char*)"filled");
       for (auto& sp : ast.next_state_probability)
 	{
-	  Agnode_t *next_state_node = agnode(g,(char*)sp.first.c_str(),1);
-	  agsafeset(next_state_node, (char*)"color", (char*)"red", (char*)"");
-	  agedge(g,state_action_node,next_state_node,nullptr,1);
+	  Agnode_t* next_state_node = agnode(g,(char*)sp.first.c_str(),1);
+	  Agedge_t* e = agedge(g,state_action_node,next_state_node,nullptr,1);
+	  agsafeset(e, (char*)"len", (char*)"1.0", (char*)"1.0");
+	  agsafeset(e, (char*)"style", (char*)"dashed", (char*)"dashed");
 	}
     }
   /* Compute a layout using layout engine from command line args */
