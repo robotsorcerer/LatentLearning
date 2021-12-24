@@ -40,7 +40,11 @@ bs = 100
 
 parser = argparse.ArgumentParser(description='Trains ResNeXt on CIFAR or ImageNet', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', type=str, choices=['mnist', 'maze'])
-parser.add_argument('--train_iters', type=int, default=500) #2000
+parser.add_argument('--train_iters', type=int, default=2000) #2000
+
+parser.add_argument('--num_rand_initial', type=int, default=5000) #2000
+
+parser.add_argument('--random_start', type=str, choices=('true','false'), default='true')
 
 parser.add_argument('--random_policy', type=str, choices=('true', 'false'), default='true')
 
@@ -102,7 +106,7 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
 ncodes = 32
 genik_maxk = 29
 
-myenv = Env()
+myenv = Env(random_start=(args.random_start=='true'))
 
 def init_model():
     net = Classifier(ncodes=ncodes, maxk=genik_maxk, inp_size=myenv.inp_size*2)
@@ -123,7 +127,7 @@ opt = init_opt(net)
 
 always_random = (args.random_policy == 'true')
 
-num_rand = 100
+num_rand = args.num_rand_initial
 ep_length = 30
 ep_rand = ep_length
 

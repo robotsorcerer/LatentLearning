@@ -13,10 +13,17 @@ from grid_4room_builder import GridWorld
 
 class Env:
 
-    def __init__(self):
+    def __init__(self, random_start):
 
-        self.grid1 = GridWorld(11)
-        self.grid2 = GridWorld(11)
+        if random_start:
+            start1 = (random.randint(0,10), random.randint(0,10))
+            start2 = (random.randint(0,10), random.randint(0,10))
+        else:
+            start1 = (1,1)
+            start2 = (1,1)
+
+        self.grid1 = GridWorld(11, start=start1)
+        self.grid2 = GridWorld(11, start=start2)
 
         self.inp_size = 11*11*3
         self.num_actions = 4

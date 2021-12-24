@@ -89,7 +89,7 @@ class Classifier(nn.Module):
 
         self.offset_embedding = nn.Embedding(maxk + 5, 64)
 
-        self.ae_enc = nn.Sequential(nn.Dropout(0.5), nn.Linear(inp_size,1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
+        self.ae_enc = nn.Sequential(nn.Linear(inp_size,1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
         self.ae_q = Quantize(512,128,4) #1024,16
         self.ae_dec = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, inp_size))
 
