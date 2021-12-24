@@ -16,8 +16,8 @@ class Env:
     def __init__(self, random_start):
 
         if random_start:
-            start1 = (random.randint(0,10), random.randint(0,10))
-            start2 = (random.randint(0,10), random.randint(0,10))
+            start1 = (random.randint(1,9), random.randint(1,9))
+            start2 = (random.randint(1,9), random.randint(1,9))
         else:
             start1 = (1,1)
             start2 = (1,1)
@@ -25,7 +25,7 @@ class Env:
         self.grid1 = GridWorld(11, start=start1)
         self.grid2 = GridWorld(11, start=start2)
 
-        self.inp_size = 11*11*3
+        self.inp_size = 11*11
         self.num_actions = 4
 
     def initial_state(self):
@@ -50,8 +50,9 @@ class Env:
         y1 = self.grid1.agent_position
         y2 = self.grid2.agent_position
 
-        x1 = self.grid1.model
-        x2 = self.grid2.model
+        x1 = self.grid1.img()
+        x2 = self.grid2.img()
+
 
         c1 = (torch.rand(1,3,1,1).clamp(0.5,1.0)*10.0).round()/10.0
         c2 = (torch.rand(1,3,1,1).clamp(0.5,1.0)*10.0).round()/10.0
@@ -87,8 +88,9 @@ class Env:
         y1 = self.grid1.agent_position
         y2 = self.grid2.agent_position
 
-        x1 = self.grid1.model
-        x2 = self.grid2.model
+        x1 = self.grid1.img()
+        x2 = self.grid2.img()
+
 
         y1_ = torch.Tensor([y1[0]*11 + y1[1]]).long()
         y2_ = torch.Tensor([y2[0]*11 + y2[1]]).long()

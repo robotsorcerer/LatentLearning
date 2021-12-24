@@ -29,6 +29,7 @@ class GridWorld(object):
         self.agent_position = self.start
         self.current_state = self._build_state(self.start)
         self._build()
+        
         self.show()
 
     def get_admissible_positions(self):
@@ -67,6 +68,13 @@ class GridWorld(object):
         self.model[quarter, middle] = 1
         self.model[middle, -quarter - 1] = 1
         self.model[-quarter - 1, middle] = 1
+
+    def img(self):
+        model_ = np.array(self.model)
+        model_[self.agent_position[0], self.agent_position[1]] = 9
+        model_[self.goal[0], self.goal[1]] = 8
+
+        return model_
 
     def show(self):
         model_ = np.array(self.model)
