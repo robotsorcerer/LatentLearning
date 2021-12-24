@@ -43,7 +43,7 @@ parser.add_argument('--train_iters', type=int, default=5000) #2000
 
 parser.add_argument('--num_rand_initial', type=int, default=2000) #2000
 
-parser.add_argument('--random_start', type=str, choices=('true','false'), default='true')
+parser.add_argument('--random_start', type=str, choices=('true','false'), default='false')
 
 parser.add_argument('--random_policy', type=str, choices=('true', 'false'), default='true')
 
@@ -106,11 +106,11 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
 
     return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
 
-ep_length = 50
+ep_length = 5
 ep_rand = ep_length
 
 ncodes = 256
-genik_maxk = ep_length - 1
+genik_maxk = 4
 
 myenv = Env(random_start=(args.random_start=='true'))
 

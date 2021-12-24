@@ -18,11 +18,15 @@ import numpy as np
 
 class Encoder(nn.Module):
 
-    def __init__(self, ncodes, inp_size):
+    def __init__(self, args, ncodes, inp_size):
         super(Encoder, self).__init__()
 
+        self.args = args
         #3*32*64
-        self.enc = nn.Sequential(nn.Linear(inp_size,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
+        if self.args.use_ae == 'true':
+            self.enc = nn.Sequential(nn.Linear(512,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
+        else:
+            self.enc = nn.Sequential(nn.Linear(inp_size,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
 
         self.qlst = []
 
@@ -67,7 +71,7 @@ class Classifier(nn.Module):
 
         self.args = args
 
-        self.enc = Encoder(ncodes, inp_size)
+        self.enc = Encoder(args, ncodes, inp_size)
 
         self.out = nn.Sequential(nn.Linear(512*3, 1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 10))
         #self.out = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3))
@@ -77,9 +81,9 @@ class Classifier(nn.Module):
 
         self.offset_embedding = nn.Embedding(maxk + 5, 512)
 
-        #self.ae_enc = nn.Sequential(nn.Linear(inp_size,1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
-        #self.ae_q = Quantize(512,128,4) #1024,16
-        #self.ae_dec = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, inp_size))
+        self.ae_enc = nn.Sequential(nn.Linear(inp_size,1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
+        self.ae_q = Quantize(512,128,4) #1024,16
+        self.ae_dec = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, inp_size))
 
         self.cutout = Cutout(1, 16)
 
@@ -101,15 +105,13 @@ class Classifier(nn.Module):
 
         x = self.ae_enc(x).unsqueeze(0)
 
-        if not (self.args.use_ae=='true'):
-            return 0.0, x.squeeze(0)
         
         z, diff, ind = self.ae_q(x)
         z = z.squeeze(0)
         x = z*1.0
         x = self.ae_dec(x)
 
-        loss = self.mse(x,x_in.detach())*10.0
+        loss = self.mse(x,x_in.detach())*0.1
         loss += diff
 
         print_ = False
@@ -122,19 +124,31 @@ class Classifier(nn.Module):
 
     def encode(self,x):
         print('x shape', x.shape)
-        #ae_loss_1, z1_low = self.ae(x)
-        z1,el_1,ind_1 = self.enc(x, True, False,k=0)
+
+        if self.args.use_ae=='true':
+            ae_loss_1, z1_low = self.ae(x)
+            z1,el_1,ind_1 = self.enc(z1_low, True, False,k=0)
+        else:    
+            z1,el_1,ind_1 = self.enc(x, True, False,k=0)
+        
         return ind_1
 
     #s is of size (bs, 256).  Turn into a of size (bs,3).  
     def forward(self, x, x_next, do_quantize, reinit_codebook=False, k=0, k_offset=None):
 
 
-        #ae_loss_1, z1_low = self.ae(x)
-        #ae_loss_2, z2_low = self.ae(x_next)
+        if self.args.use_ae=='true':
+            ae_loss_1, z1_low = self.ae(x)
+            ae_loss_2, z2_low = self.ae(x_next)
+            ae_loss = ae_loss_1 + ae_loss_2
 
-        z1,el_1,ind_1 = self.enc(x, do_quantize, reinit_codebook,k=k)
-        z2,el_2,ind_2 = self.enc(x_next, do_quantize, reinit_codebook,k=k)
+            z1,el_1,ind_1 = self.enc(z1_low.detach(), do_quantize, reinit_codebook,k=k)
+            z2,el_2,ind_2 = self.enc(z2_low.detach(), do_quantize, reinit_codebook,k=k)
+
+        else:
+            z1,el_1,ind_1 = self.enc(x, do_quantize, reinit_codebook,k=k)
+            z2,el_2,ind_2 = self.enc(x_next, do_quantize, reinit_codebook,k=k)
+            ae_loss = 0.0
 
         #print('k_offset', k_offset)
         #print('k_offset shape', k_offset.shape)
@@ -156,7 +170,7 @@ class Classifier(nn.Module):
 
         out = self.out(z)
 
-        loss = el_1 + el_2
+        loss = el_1 + el_2 + ae_loss
 
         return out, loss, ind_1, ind_2, z1, z2
 
