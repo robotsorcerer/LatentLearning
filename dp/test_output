@@ -1,7 +1,7 @@
 #Occupancy
 672 3:.15 1:0.05 2:0.8
 
-#learned state transition table
+#learned state transition table (a, s) --> s'
 1 3 1:0.95 2:0.05
 2 3 3:1
 3 3 2:0.6 3:0.3 1:0.1
@@ -12,10 +12,10 @@
 2 1 1:1
 3 1 3:1
 
-#ground state occupancy
+#ground state occupancy (count, states).  Construct purely with ground truth.  
 672 c:.1 a:0.1 b:0.8
 
-#ground state transition table
+#ground state transition table (a, s) --> s'.  Construct purely with ground truth.  
 1 a c:1
 2 a a:1
 3 a b:1
@@ -26,12 +26,12 @@
 2 c c:1
 3 c a:1
 
-#learned state explanation table
+#learned state explanation table.  learned_state --> ground_state.  
 1 c:0.9 a:0.1
 2 b:1
 3 a:0.5 c:0.5
 
-#ground state explanation table
+#ground state explanation table.  ground_state --> learned_state.  
 a 3:0.3 1:0.7
 b 2:0.6 1:0.4
 c 1:1

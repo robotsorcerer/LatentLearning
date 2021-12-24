@@ -5,13 +5,14 @@ import statistics
 
 class Transition:
 
-    def __init__(self, ncodes): 
+    def __init__(self, ncodes, num_actions): 
         self.ncodes = ncodes
+        self.na = num_actions
         self.reset()
 
     def reset(self):
 
-        self.state_transition = torch.zeros(self.ncodes,3,self.ncodes)
+        self.state_transition = torch.zeros(self.ncodes,self.na,self.ncodes)
 
         self.tr_lst = []
         self.trn_lst = []
@@ -24,7 +25,7 @@ class Transition:
 
 
         for j in range(0, ind_last.shape[0]):
-            self.state_transition[ind_last.flatten()[j], a1[j]+1, ind_new.flatten()[j]] += 1
+            self.state_transition[ind_last.flatten()[j], a1[j], ind_new.flatten()[j]] += 1
 
         for j in range(0,self.ncodes):
             self.tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
@@ -58,10 +59,10 @@ class Transition:
         corr = 0
         incorr = 0
 
-        coverage = torch.zeros(10,3)
+        coverage = torch.zeros(10,self.na)
 
         print('state transition matrix!')
-        for a in range(0,3):
+        for a in range(0,self.na):
             for k in range(0,self.state_transition.shape[0]):
                 if self.state_transition[k,a].sum().item() > 0:
                     print(mode_lst[k], a-1, 'argmax', moden_lst[self.state_transition[k,a].argmax()], 'num', self.state_transition[k,a].sum().item())
@@ -80,7 +81,7 @@ class Transition:
 
 
         print('transition acc', corr*1.0 / (corr+incorr))
-        print('coverage', coverage.sum() * 1.0 / (10*3))   
+        print('coverage', coverage.sum() * 1.0 / (10*self.na))   
 
     def select_goal(self):
 
@@ -107,7 +108,7 @@ class Transition:
         best_action = -1
         best_value = -1
 
-        for a in range(0,3):
+        for a in range(0,self.na):
             val = 0.0
             for sn in range(self.ncodes):
                 val += reward[sn] * probs[init_state, a, sn]

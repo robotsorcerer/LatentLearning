@@ -76,7 +76,7 @@ class Encoder(nn.Module):
 
 class Classifier(nn.Module):
 
-    def __init__(self, ncodes, maxk):
+    def __init__(self, ncodes, maxk, inp_size):
         super(Classifier, self).__init__()
 
         self.enc = Encoder(ncodes)
@@ -89,9 +89,9 @@ class Classifier(nn.Module):
 
         self.offset_embedding = nn.Embedding(maxk + 5, 64)
 
-        self.ae_enc = nn.Sequential(nn.Dropout(0.5), nn.Linear(3*32*64,1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
+        self.ae_enc = nn.Sequential(nn.Dropout(0.5), nn.Linear(inp_size,1024), nn.LeakyReLU(), nn.Linear(1024,1024), nn.LeakyReLU(), nn.Linear(1024, 512))
         self.ae_q = Quantize(512,128,4) #1024,16
-        self.ae_dec = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, 3*32*64))
+        self.ae_dec = nn.Sequential(nn.Linear(512, 512), nn.LeakyReLU(), nn.Linear(512, inp_size))
 
         self.cutout = Cutout(1, 16)
 
@@ -120,6 +120,7 @@ class Classifier(nn.Module):
         loss = self.mse(x,x_in.detach())*10.0
         loss += diff
 
+        print_ = False
         if print_:
             print('rec loss', loss)
             x_rec = x.reshape((x.shape[0], 3, 32, 64))
@@ -128,6 +129,7 @@ class Classifier(nn.Module):
         return loss, z
 
     def encode(self,x):
+        print('x shape', x.shape)
         ae_loss_1, z1_low = self.ae(x)
         z1,el_1,ind_1 = self.enc(z1_low, True, False,k=0)
         return ind_1

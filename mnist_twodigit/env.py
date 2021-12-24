@@ -29,6 +29,8 @@ class Env:
 
         self.x_lst = []
 
+        self.inp_size = 3*32*32
+
         for j in range(0,10):
             self.x_lst.append([])
 
@@ -63,6 +65,12 @@ class Env:
         #c2 = torch.rand(1,3,1,1)
         #c1 = torch.ones(1,3,1,1)
         #c2 = torch.ones(1,3,1,1)
+
+        print(y1.shape)
+        print(c1.shape)
+        print(x1.shape)
+
+        raise Exception()
 
         return y1,c1,y2,c2,x1,x2
 

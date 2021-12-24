@@ -34,34 +34,24 @@ import statistics
 
 from value_iteration import value_iteration
 
+import argparse
+
 bs = 100
 
-train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
-                                                         download=True,
-                                                          train=True,
-                                                          transform=transforms.Compose([
-                                                              transforms.Resize((32,32)),
-                                                              transforms.ToTensor(), # first, convert image to PyTorch tensor
-                                                          ])),
-                                           batch_size=bs,
-                                            drop_last=True,
-                                           shuffle=True)
+parser = argparse.ArgumentParser(description='Trains ResNeXt on CIFAR or ImageNet', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--data', type=str, choices=['mnist', 'maze'])
+parser.add_argument('--train_iters', type=int, default=500) #2000
 
+parser.add_argument('--random_policy', type=str, choices=('true', 'false'), default='true')
 
+args = parser.parse_args()
 
-#def colorize(x): 
-#    x = x.repeat(1,3,1,1)
-#    bs = x.shape[0]
- 
-#    c = torch.rand(bs,3,1,1)
-
-#    x *= c
-
-#    return x, c
-
-#def transition(x,y1,y2,c1,c2,a1,a2):
-
-#Given (cat(x1,x2), cat(x1,x2)_ --> classify a.  ).  
+if args.data == 'mnist':
+    from env import Env
+elif args.data == 'maze':
+    from grid_4room_env import Env
+else:
+    raise Exception()
 
 
 def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_ind=None, klim=None): 
@@ -112,8 +102,10 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
 ncodes = 32
 genik_maxk = 29
 
+myenv = Env()
+
 def init_model():
-    net = Classifier(ncodes=ncodes, maxk=genik_maxk)
+    net = Classifier(ncodes=ncodes, maxk=genik_maxk, inp_size=myenv.inp_size*2)
 
     if torch.cuda.is_available():
         net = net.cuda()
@@ -129,16 +121,16 @@ ce = nn.CrossEntropyLoss()
 net = init_model()
 opt = init_opt(net)
 
-always_random = False
+always_random = (args.random_policy == 'true')
 
 num_rand = 100
 ep_length = 30
 ep_rand = ep_length
 
-myenv = Env()
 mybuffer = Buffer(ep_length=ep_length, max_k=genik_maxk)
-transition = Transition(ncodes)
+transition = Transition(ncodes, myenv.num_actions)
 transition.reset()
+
 
 is_initial = True
 step = 0
@@ -158,6 +150,10 @@ for env_iteration in range(0, 200000):
         step += 1
 
     if is_initial:
+
+        if args.data == 'maze':
+            myenv.reset()
+
         y1,c1,y2,c2,x1,x2 = myenv.initial_state()
         is_initial = False
     else:
@@ -166,14 +162,14 @@ for env_iteration in range(0, 200000):
         x1 = x1_
         x2 = x2_
     
-    x = torch.cat([x1*c1,0*x2*c2], dim=3)
+    x = torch.cat([x1*c1,x2*c2], dim=3)
 
     net.eval()
     #pick actions randomly or with policy
     init_state = net.encode((x*1.0).cuda())
     if always_random or mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.1:
         print('random action')
-        a1 = torch.randint(-1,2,size=(1,))
+        a1 = myenv.random_action()
     else:
         print('use policy to pick action!')
         reward = transition.select_goal()
@@ -183,15 +179,17 @@ for env_iteration in range(0, 200000):
         a1 = torch.Tensor([a1]).long()
         print('a1', a1)
 
-    a2 = torch.randint(-1,2,size=(1,))
+    a2 = myenv.random_action()
 
-    x1_, x2_, y1_, y2_ = myenv.transition(a1,a2,y1,y2,c1,c2)
-
+    if args.data == 'mnist':
+        x1_, x2_, y1_, y2_ = myenv.transition(a1,a2,y1,y2,c1,c2)
+    elif args.data == 'maze':
+        x1_, x2_, y1_, y2_ = myenv.transition(a1,a2)
     
     print('example', y1, y1_, a1)
 
     #make x from x1,x2
-    x_ = torch.cat([x1_*c1,0*x2_*c2], dim=3)
+    x_ = torch.cat([x1_*c1,x2_*c2], dim=3)
 
     next_state = net.encode((x_*1.0).cuda())
     transition.update(init_state, next_state, a1, y1, y1_)
@@ -210,9 +208,9 @@ for env_iteration in range(0, 200000):
     net.train()
     accs = []
     if mybuffer.num_ex > 150:
-        num_iter = 500
+        num_iter = max(1, args.train_iters//4)
     else:
-        num_iter = 2000
+        num_iter = args.train_iters
     for iteration in range(0,num_iter):
 
         print_ = iteration==num_iter-1
