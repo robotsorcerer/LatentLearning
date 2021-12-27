@@ -39,9 +39,9 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Trains ResNeXt on CIFAR or ImageNet', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', type=str, choices=['mnist', 'maze'])
-parser.add_argument('--train_iters', type=int, default=5000) #2000
+parser.add_argument('--train_iters', type=int, default=2000) #2000
 
-parser.add_argument('--num_rand_initial', type=int, default=2000) #2000
+parser.add_argument('--num_rand_initial', type=int, default=500) #2000
 
 parser.add_argument('--random_start', type=str, choices=('true','false'), default='false')
 

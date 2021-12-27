@@ -41,6 +41,8 @@ class Transition:
             if len(self.trn_lst[j]) > 0:
                 print('next', j, self.trn_lst[j], 'mode', statistics.mode(self.trn_lst[j]))
 
+        print("=========================EVAL_SCRIPT============================")
+
     def print_modes(self):
 
         mode_lst = []
