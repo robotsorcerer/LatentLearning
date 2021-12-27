@@ -120,17 +120,40 @@ void parse_state_explanation(state_explanations& se, char* line)
   se.emplace(key,sd);
 }
 
-void print_state_explanation(const pair<string,state_distribution>& se)
-{
-  cout << se.first;
-  print_state_distribution(se.second);
-}
-
 void print_state_explanations(const state_explanations& ses)
 {
   for (auto& se : ses)
-    print_state_explanation(se);
+    {
+      cout << se.first;
+      print_state_distribution(se.second);
+    }
   cout << endl;
+}
+
+typedef unordered_map<string,vector<string>> state_examples;
+
+void parse_state_examples(state_examples& se, char* line)
+{
+  string key = strtok(line, " \t");
+
+  vector<string> value;
+  char* uri;
+  while ((uri=strtok(nullptr, " \t\n")) != nullptr)
+    value.push_back(uri);
+
+  se.emplace(key,value);
+}
+
+void print_state_examples(state_examples& ses)
+{
+  for (auto& se : ses)
+    {
+      cout << se.first;
+      for (auto& uri : se.second)
+	cout << " " << uri;
+      cout << endl;  
+    }
+  cout << endl;  
 }
 
 // max_elements log (1/probability)
@@ -311,6 +334,8 @@ int main(int argc, char *argv[])
   action_transitions ground_transitions;
   state_explanations learned_by_ground;
   state_explanations ground_by_learned;
+  state_examples learned_examples;
+  state_examples ground_examples;
   
   size_t table = 0;
   bool mid_table = false;
@@ -338,16 +363,22 @@ int main(int argc, char *argv[])
       case 1: // learned state transition
 	parse_action_transition(learned_transitions,line);
 	break;
-      case 2: // ground state occupancy
+      case 2: // learned_state_examples
+	parse_state_examples(learned_examples,line);
+	break;
+      case 3: // ground state occupancy
 	ground_marginals = parse_marginal(line);
 	break;
-      case 3: // ground state transition
+      case 4: // ground state transition
 	parse_action_transition(ground_transitions,line);
 	break;
-      case 4: // learned state explanation
+      case 5: // ground state examples
+	parse_state_examples(ground_examples,line);
+	break;
+      case 6: // learned state explanation
 	parse_state_explanation(learned_by_ground,line);
 	break;
-      case 5: // ground state explanation
+      case 7: // ground state explanation
 	parse_state_explanation(ground_by_learned,line);
 	break;
       default:
