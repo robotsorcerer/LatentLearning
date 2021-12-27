@@ -403,12 +403,12 @@ int main(int argc, char *argv[])
   print_state_explanations(ground_by_learned);
   */
   //learned-only metrics
-  cout << "learned state ";
+  cout << learned_marginals.state_probability.size() << " learned states ";
   min_entropy(learned_marginals);
   graph_dynamics(learned_transitions);
   
   //learned+ground metrics
-  cout << "ground state ";
+  cout << ground_marginals.state_probability.size() << " ground state ";
   min_entropy(ground_marginals);
   sss_and_dsm(learned_by_ground, ground_by_learned);
   transition_difference(learned_transitions, ground_transitions, learned_by_ground);
