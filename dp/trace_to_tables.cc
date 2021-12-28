@@ -206,7 +206,10 @@ int main(int argc, char* argv[])
     normalize_state_distribution(trans.second);
   print_action_transitions(learned_transitions);
   cout << "#learned_examples" << endl;
-  print_state_examples(learned_examples);
+  if (learned_examples.size() > 0)
+    print_state_examples(learned_examples);
+  else
+    cout << "no_examples\n" << endl;
   cout << "#ground_marginals" << endl;
   ground_marginals.count = normalize_state_distribution(ground_marginals.state_probability);
   print_marginal(ground_marginals);
@@ -215,7 +218,10 @@ int main(int argc, char* argv[])
     normalize_state_distribution(trans.second);
   print_action_transitions(ground_transitions);
   cout << "#ground_examples" << endl;
-  print_state_examples(ground_examples);
+  if (ground_examples.size() > 0)
+    print_state_examples(ground_examples);
+  else
+    cout << "no_examples\n" << endl;
   cout << "#learned_by_ground" << endl;
   for (auto& trans : learned_by_ground)
     normalize_state_distribution(trans.second);
