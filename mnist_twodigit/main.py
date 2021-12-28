@@ -34,34 +34,29 @@ import statistics
 
 from value_iteration import value_iteration
 
-bs = 100
-
-train_loader = torch.utils.data.DataLoader(datasets.MNIST('data',
-                                                         download=True,
-                                                          train=True,
-                                                          transform=transforms.Compose([
-                                                              transforms.Resize((32,32)),
-                                                              transforms.ToTensor(), # first, convert image to PyTorch tensor
-                                                          ])),
-                                           batch_size=bs,
-                                            drop_last=True,
-                                           shuffle=True)
+import argparse
 
 
+parser = argparse.ArgumentParser(description='Trains ResNeXt on CIFAR or ImageNet', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--data', type=str, choices=['mnist', 'maze'])
+parser.add_argument('--train_iters', type=int, default=2000) #2000
 
-#def colorize(x): 
-#    x = x.repeat(1,3,1,1)
-#    bs = x.shape[0]
- 
-#    c = torch.rand(bs,3,1,1)
+parser.add_argument('--num_rand_initial', type=int, default=500) #2000
 
-#    x *= c
+parser.add_argument('--random_start', type=str, choices=('true','false'), default='false')
 
-#    return x, c
+parser.add_argument('--random_policy', type=str, choices=('true', 'false'), default='true')
 
-#def transition(x,y1,y2,c1,c2,a1,a2):
+parser.add_argument('--use_ae', type=str, choices=('true', 'false'), default='false')
 
-#Given (cat(x1,x2), cat(x1,x2)_ --> classify a.  ).  
+args = parser.parse_args()
+
+if args.data == 'mnist':
+    from env import Env
+elif args.data == 'maze':
+    from grid_4room_env import Env
+else:
+    raise Exception()
 
 
 def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_ind=None, klim=None): 
@@ -92,28 +87,35 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
         #    loss += pl
         #    loss += pl2
 
-        loss += ce(out, a1+1)
+        loss += ce(out, a1)
         loss += q_loss
 
         #print(k_ind, loss, q_loss)
 
-    #if print_:
-    #    print('a', a1)
-    #    print('out', out.shape, out)
-        #save_image(xl_use, 'xlast.png')
-        #save_image(xn_use, 'xnext.png')
-
+    if False:#print_:
+        print('xl_use2', xl_use[0])
+        print('xn_use2', xn_use[0])
+        print('a', a1)
+        print('out', out.shape, out)
+        save_image(xl_use[0:10]/10.0, 'xlast2.png')
+        save_image(xn_use[0:10]/10.0, 'xnext2.png')
+        raise Exception('done')
 
     ind_last = ind_last.flatten()
     ind_new = ind_new.flatten()
 
     return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
 
-ncodes = 32
-genik_maxk = 29
+ep_length = 5
+ep_rand = ep_length
+
+ncodes = 256
+genik_maxk = 4
+
+myenv = Env(random_start=(args.random_start=='true'))
 
 def init_model():
-    net = Classifier(ncodes=ncodes, maxk=genik_maxk)
+    net = Classifier(args, ncodes=ncodes, maxk=genik_maxk, inp_size=myenv.inp_size*2)
 
     if torch.cuda.is_available():
         net = net.cuda()
@@ -129,16 +131,14 @@ ce = nn.CrossEntropyLoss()
 net = init_model()
 opt = init_opt(net)
 
-always_random = False
+always_random = (args.random_policy == 'true')
 
-num_rand = 100
-ep_length = 30
-ep_rand = ep_length
+num_rand = args.num_rand_initial
 
-myenv = Env()
 mybuffer = Buffer(ep_length=ep_length, max_k=genik_maxk)
-transition = Transition(ncodes)
+transition = Transition(ncodes, myenv.num_actions)
 transition.reset()
+
 
 is_initial = True
 step = 0
@@ -158,6 +158,10 @@ for env_iteration in range(0, 200000):
         step += 1
 
     if is_initial:
+
+        if args.data == 'maze':
+            myenv.reset()
+
         y1,c1,y2,c2,x1,x2 = myenv.initial_state()
         is_initial = False
     else:
@@ -166,14 +170,19 @@ for env_iteration in range(0, 200000):
         x1 = x1_
         x2 = x2_
     
-    x = torch.cat([x1*c1,0*x2*c2], dim=3)
+    if args.data == 'mnist':
+        x = torch.cat([x1*c1,x2*c2], dim=3)
+    elif args.data == 'maze':
+        x = torch.cat([x1,x2], dim=3)
+    else:
+        raise Exception()
 
     net.eval()
     #pick actions randomly or with policy
     init_state = net.encode((x*1.0).cuda())
     if always_random or mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.1:
         print('random action')
-        a1 = torch.randint(-1,2,size=(1,))
+        a1 = myenv.random_action()
     else:
         print('use policy to pick action!')
         reward = transition.select_goal()
@@ -183,15 +192,22 @@ for env_iteration in range(0, 200000):
         a1 = torch.Tensor([a1]).long()
         print('a1', a1)
 
-    a2 = torch.randint(-1,2,size=(1,))
+    a2 = myenv.random_action()
 
-    x1_, x2_, y1_, y2_ = myenv.transition(a1,a2,y1,y2,c1,c2)
-
+    if args.data == 'mnist':
+        x1_, x2_, y1_, y2_ = myenv.transition(a1,a2,y1,y2,c1,c2)
+    elif args.data == 'maze':
+        x1_, x2_, y1_, y2_ = myenv.transition(a1,a2)
     
     print('example', y1, y1_, a1)
 
     #make x from x1,x2
-    x_ = torch.cat([x1_*c1,0*x2_*c2], dim=3)
+    if args.data == 'mnist':
+        x_ = torch.cat([x1_*c1,x2_*c2], dim=3)
+    elif args.data == 'maze':
+        x_ = torch.cat([x1_,x2_], dim=3)
+    else:
+        raise Exception()
 
     next_state = net.encode((x_*1.0).cuda())
     transition.update(init_state, next_state, a1, y1, y1_)
@@ -210,22 +226,25 @@ for env_iteration in range(0, 200000):
     net.train()
     accs = []
     if mybuffer.num_ex > 150:
-        num_iter = 500
+        num_iter = max(1, args.train_iters//4)
     else:
-        num_iter = 2000
+        num_iter = args.train_iters
     for iteration in range(0,num_iter):
 
         print_ = iteration==num_iter-1
 
         do_quantize = iteration >= 500 or mybuffer.num_ex > 150
         
-        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, do_quantize, reinit_code, 128, None, None)
+        out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, do_quantize, reinit_code, 256, None, None)
+
+        if iteration % 100 == 0:
+            print('loss', loss)
 
         opt.zero_grad()
         loss.backward()
         opt.step()
 
-        pred = (out.argmax(1) - 1)
+        pred = out.argmax(1)
         a1 = a1.cuda()
         pred = pred.cuda()
 
@@ -237,7 +256,7 @@ for env_iteration in range(0, 200000):
 
         out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, _ = update_model(net, mybuffer, print_, True, False, len(ex_lst), ex_lst, klim=1)        
 
-        pred = (out.argmax(1) - 1)
+        pred = out.argmax(1)
         a1 = a1.cuda()
         pred = pred.cuda()
         accs.append(torch.eq(pred, a1).float().mean().item())
@@ -251,7 +270,7 @@ for env_iteration in range(0, 200000):
 
         out, loss, ind_last, ind_new, a1, tr_y1, tr_y1_, koffset = update_model(net, mybuffer, print_, True, False, len(ex_lst), ex_lst, klim=None)
 
-        pred = (out.argmax(1) - 1)
+        pred = out.argmax(1)
         a1 = a1.cuda()
         pred = pred.cuda()
         accs_all.append(torch.eq(pred, a1).float().mean().item())

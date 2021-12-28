@@ -52,6 +52,7 @@ class Buffer:
     '''
     def sample_batch(self, bs, indlst=None, klim=None): 
 
+
         ba = []
         by1 = []
         by1_ = []
