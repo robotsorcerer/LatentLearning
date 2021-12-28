@@ -23,9 +23,12 @@ from visgrid.sensors import *
 from visgrid.gridworld.distance_oracle import DistanceOracle
 
 
+from gridworld.gridworld_wrapper import GridWorldWrapper
+
+
 parser = argparse.ArgumentParser(description='Maze Task', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('--data', type=str, choices=['maze', 'vis-maze'])
+parser.add_argument('--data', type=str, choices=['maze', 'vis-maze', 'minigrid'])
 
 parser.add_argument('--train_iters', type=int, default=5000) #2000
 
@@ -77,10 +80,15 @@ else:
 
 if args.data == 'maze':
     myenv = Env(random_start=(args.random_start=='true'))
-
 elif args.data == 'vis-maze':
     myenv = env
+elif args.data == 'minigrid':
+    myenv = GridWorldWrapper.make_env("twogrids")
+    env = myenv
+    myenv.num_actions = len(env.actions)
 
+    # action = random.randint(0, 4)
+    # obs, reward, done, info = env.step(action)
 else:
     raise Exception()
 
@@ -120,6 +128,7 @@ def update_model(model, mybuffer, print_, do_quantize, reinit_codebook,bs,batch_
     return out, loss, ind_last, ind_new, a1, y1, y1_, k_offset
 
 
+
 def init_model():
     if args.data=='maze':
         net = Classifier(args, ncodes=ncodes, maxk=genik_maxk, inp_size=myenv.inp_size*2)
@@ -128,6 +137,9 @@ def init_model():
             net = Classifier(args, ncodes=ncodes, maxk=genik_maxk, inp_size=80 * 160 * 3)
         elif args.obs_type == 'high_dim':
             net = Classifier(args, ncodes=ncodes, maxk=genik_maxk, inp_size=11 * 11 * 2)
+    elif args.data == 'minigrid':
+        net = Classifier(args, ncodes=ncodes, maxk=genik_maxk, inp_size=60 * 120 * 3)
+
     return net
 
 def init_opt(net):
@@ -191,6 +203,20 @@ for env_iteration in range(0, 200000):
 
             x1 = env.get_observation(x1, args.obs_type)
 
+        elif args.data == 'minigrid':
+            img, info1 = env.reset()
+            img2, info2 = env.reset()
+
+
+            true_state1 = info1['state']
+            true_state2 = info2['state']
+
+            y1 = np.array([ true_state1[0], true_state1[1]  ])
+            y2 = np.array([ true_state2[0], true_state2[1]  ])
+
+            y1 = torch.Tensor([y1[0]*11 + y1[1]]).long()
+            y2 = torch.Tensor([y2[0]*11 + y2[1]]).long()
+
         is_initial = False
 
 
@@ -201,6 +227,9 @@ for env_iteration in range(0, 200000):
             x = torch.cat([x1,x1], dim=3)
         else :
             x = torch.cat([x1,x1], dim=2)
+    elif args.data == 'minigrid':
+        # x = torch.tensor(img)
+        x = torch.Tensor(img).float().unsqueeze(0)
     else:
         raise Exception()
     net.eval()
@@ -208,11 +237,9 @@ for env_iteration in range(0, 200000):
     #pick actions randomly or with policy
     init_state = net.encode((x*1.0))
 
-
     if always_random or mybuffer.num_ex < num_rand or step >= ep_rand or random.uniform(0,1) < 0.1:
         print('random action')
         a1 = myenv.random_action()
-
     else:
         print('use policy to pick action!')
         reward = transition.select_goal()
@@ -248,9 +275,22 @@ for env_iteration in range(0, 200000):
             x1_ = env.img() #### TODO HERE : Add flexibility for exo noise in observations too
 
         x1 = env.get_observation(x1_, args.obs_type)
+
+    elif args.data == 'minigrid':
+        obs1, reward1, done, info1 = env.step(a1)
+        obs2, reward2, done, info2 = env.step(a2)
+
+        true_state1 = info1['state']
+        true_state2 = info2['state']
+
+        y1_ = np.array([ true_state1[0], true_state1[1]  ])
+        y2_ = np.array([ true_state2[0], true_state2[1]  ])
+
+        y1_ = torch.Tensor([y1_[0]*11 + y1_[1]]).long()
+        y2_ = torch.Tensor([y2_[0]*11 + y2_[1]]).long()
+
     else:
         raise Exception()    
-
 
     # print('example', y1, y1_, a1)
 
@@ -262,6 +302,8 @@ for env_iteration in range(0, 200000):
             x_ = torch.cat([x1,x1], dim=3)
         else :
             x_ = torch.cat([x1,x1], dim=2)
+    elif args.data == 'minigrid':
+        x_ = torch.Tensor(obs1).float().unsqueeze(0)
     else:
         raise Exception()
 
@@ -275,8 +317,6 @@ for env_iteration in range(0, 200000):
 
     print('my buffer numex', mybuffer.num_ex)
 
-
-
     if mybuffer.num_ex < num_rand or mybuffer.num_ex % 100 != 0:
         continue
 
@@ -289,10 +329,6 @@ for env_iteration in range(0, 200000):
         num_iter = max(1, args.train_iters//4)
     else:
         num_iter = args.train_iters
-
-
-
-    import ipdb; ipdb.set_trace()
 
     for iteration in range(0,num_iter):
 
