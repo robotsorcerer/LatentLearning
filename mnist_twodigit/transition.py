@@ -20,6 +20,7 @@ class Transition:
             self.tr_lst.append([])
             self.trn_lst.append([])
 
+        self.pair_lst = []
 
     def update(self, ind_last, ind_new, a1, y1, y1_):
 
@@ -27,21 +28,71 @@ class Transition:
         for j in range(0, ind_last.shape[0]):
             self.state_transition[ind_last.flatten()[j], a1[j], ind_new.flatten()[j]] += 1
 
+            self.pair_lst.append((y1[j], ind_last.flatten()[j], a1[j], y1_[j], ind_new.flatten()[j]))
+
         for j in range(0,self.ncodes):
             self.tr_lst[j] += y1[ind_last.flatten()==j].data.cpu().numpy().tolist()
             self.trn_lst[j] += y1_[ind_new.flatten()==j].data.cpu().numpy().tolist()
 
-
     def print_codes(self): 
+
+        count = 0
+        g_count = {} #g --> p(g)
+        l_count = {} #l --> p(l)
+        al2l = {} # p(l | a,l)
+        ag2g = {} # p(g | a,g)
+        l2g = {} # p(g | l)
+        g2l = {}
+        aset = {}
 
         for j in range(0,self.ncodes):
 
             if len(self.tr_lst[j]) > 0:
                 print('last', j, self.tr_lst[j], 'mode', statistics.mode(self.tr_lst[j]))
-            if len(self.trn_lst[j]) > 0:
-                print('next', j, self.trn_lst[j], 'mode', statistics.mode(self.trn_lst[j]))
+
+
+        for (glast, llast, a, gnext, lnext) in self.pair_lst:
+            count += 1
+            if not gnext in g_count:
+                g_count[gnext] = 0
+
+            g_count[gnext] += 1
+            aset[a] = True
+
+            if not lnext in l_count:
+                l_count[lnext] = 0
+
+            l_count[lnext] += 1
+
+            if not (a, llast, lnext) in al2l:
+                al2l[(a, llast, lnext)] = 0
+
+            al2l[(a, llast, lnext)] += 1
+
+            if not (a, glast, gnext) in ag2g:
+                ag2g[(a, glast, gnext)] = 0
+
+            ag2g[(a, glast, gnext)] += 1
+
+            if not (lnext, gnext) in l2g:
+                l2g[(lnext, gnext)] = 0
+
+            l2g[(lnext, gnext)] += 1
+
+            if not (gnext, lnext) in g2l:
+                g2l[(gnext, lnext)] = 0
+            
+            g2l[(gnext, lnext)] += 1
+
+        #normalization
+        #for (g,l) 
+
 
         print("=========================EVAL_SCRIPT============================")
+        #The learned codes are 0 to self.ncodes.  For each learned code we get the ground codes in tr_lst[j].  
+        
+        
+        raise Exception('done')
 
     def print_modes(self):
 
