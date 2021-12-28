@@ -1,25 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include <vector>
 #include <string.h>
 #include <math.h>
 #include <bits/stdc++.h>
 #include <gvc.h>
-#include <unordered_map>
+#include "state_tables.h"
 
 using namespace std;
 
-typedef unordered_map<string,float> state_distribution;
-
 const double epsilon = 1e-4;
-
-void print_state_distribution(const state_distribution& sd)
-{
-  for(auto& sp : sd)
-    cout << " " << sp.first << ":" << sp.second;
-  cout << endl;
-}
 
 void parse_state_distribution(char* line, state_distribution& sd)
 {
@@ -35,18 +25,9 @@ void parse_state_distribution(char* line, state_distribution& sd)
       total += sd[state];
     }
   if (fabs(1. - total) > epsilon)
-    {
-      cerr << "bad state distribution: ";
-      print_state_distribution(sd);
-    }
+    cerr << "bad state distribution" << endl;
 }
   
-struct marginal
-{
-  size_t count;
-  state_distribution state_probability;
-};
-
 marginal parse_marginal(char* line)
 {
   marginal ret;
@@ -54,38 +35,6 @@ marginal parse_marginal(char* line)
   parse_state_distribution(line, ret.state_probability);
   return ret;
 }
-
-void print_marginal(const marginal& m)
-{
-  cout << m.count;
-  print_state_distribution(m.state_probability);
-  cout << endl;
-}
-
-struct action_state
-{
-  string action;
-  string state;
-
-  bool operator==(const action_state &other) const
-  { return (action == other.action
-            && state == other.state);
-  }
-};
-
-namespace std {
-template <>
-struct hash<action_state>
-{
-  size_t operator()(const action_state& k) const
-  {
-    return ((hash<string>()(k.action)
-	     ^ (hash<string>()(k.state) << 1)) >> 1);
-  }
-};
-}
-
-typedef unordered_map<action_state,state_distribution> action_transitions;
 
 void parse_action_transition(action_transitions& ats, char* line)
 {
@@ -97,21 +46,6 @@ void parse_action_transition(action_transitions& ats, char* line)
   ats.emplace(as,sd);
 }
 
-void print_action_transition(const pair<action_state,state_distribution>& at)
-{
-  cout << at.first.action << " " << at.first.state;
-  print_state_distribution(at.second);
-}
-
-void print_action_transitions(const action_transitions& ats)
-{
-  for (auto& at : ats)
-    print_action_transition(at);
-  cout << endl;
-}
-
-typedef unordered_map<string,state_distribution> state_explanations;
-
 void parse_state_explanation(state_explanations& se, char* line)
 {
   string key = strtok(line, " \t");
@@ -119,18 +53,6 @@ void parse_state_explanation(state_explanations& se, char* line)
   parse_state_distribution(line, sd);
   se.emplace(key,sd);
 }
-
-void print_state_explanations(const state_explanations& ses)
-{
-  for (auto& se : ses)
-    {
-      cout << se.first;
-      print_state_distribution(se.second);
-    }
-  cout << endl;
-}
-
-typedef unordered_map<string,vector<string>> state_examples;
 
 void parse_state_examples(state_examples& se, char* line)
 {
@@ -142,18 +64,6 @@ void parse_state_examples(state_examples& se, char* line)
     value.push_back(uri);
 
   se.emplace(key,value);
-}
-
-void print_state_examples(state_examples& ses)
-{
-  for (auto& se : ses)
-    {
-      cout << se.first;
-      for (auto& uri : se.second)
-	cout << " " << uri;
-      cout << endl;  
-    }
-  cout << endl;  
 }
 
 // max_elements log (1/probability)
@@ -387,21 +297,7 @@ int main(int argc, char *argv[])
   }
   free(line);
   fclose(stream);
-  /*
-  cout << "#read in:" << endl;
-  cout << "#learned_marginals" << endl;
-  print_marginal(learned_marginals);
-  cout << "#learned_transitions" << endl;
-  print_action_transitions(learned_transitions);
-  cout << "#ground_marginals" << endl;
-  print_marginal(ground_marginals);
-  cout << "#ground_transitions" << endl;
-  print_action_transitions(ground_transitions);
-  cout << "#learned_by_ground" << endl;
-  print_state_explanations(learned_by_ground);
-  cout << "#ground_by_learned" << endl;
-  print_state_explanations(ground_by_learned);
-  */
+
   //learned-only metrics
   cout << learned_marginals.state_probability.size() << " learned states ";
   min_entropy(learned_marginals);
