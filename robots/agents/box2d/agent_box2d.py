@@ -35,7 +35,7 @@ class AgentBox2D(Agent):
         self.counter = 0  # use this for early stopping during data collection
         self.recorded_states = np.asarray([['filename', 'joint_angle', 'joint_velocities', \
                                             "end_effector_points", "joint angle controls"]])
-
+        self.episode_length= 100
     def _setup_conditions(self):
         """
         Helper method for setting some hyperparameters that may vary by
@@ -86,7 +86,7 @@ class AgentBox2D(Agent):
             noise = np.zeros((self.T, self.dU))
         for t in range(self.T):
             obs_t = new_sample.get_obs(t=t)
-            U[t, :] = policy[condition].act(new_sample, t, noise[t, :])
+            U[t, :] = policy[condition].act(new_sample, t, random)
             if (t+1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
                     self._worlds[condition].run_next(U[t, :])

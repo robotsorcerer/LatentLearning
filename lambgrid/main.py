@@ -33,7 +33,7 @@ from transition import Transition
 
 import statistics
 
-from value_iteration import value_iteration
+from value_iter import value_iteration
 
 import argparse
 

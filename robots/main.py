@@ -14,8 +14,6 @@ import logging
 import importlib
 import numpy as np
 from absl import flags, app
-from os.path import join, expanduser
-sys.path.append( os.path.dirname( os.path.dirname( os.path.abspath(__file__) ) ) )
 
 # torch and nns
 import torch
@@ -25,6 +23,8 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 
 # agent, its dynamics, and its policies
+from os.path import dirname , abspath, join, expanduser
+sys.path.append(dirname(dirname(abspath(__file__))))
 from agents.box2d.framework import (Framework, Keys, main)
 from algorithms.policy.policy import Policy
 from algorithms.policy.policy_prior_gmm import PolicyPriorGMM
@@ -32,6 +32,11 @@ from algorithms.algorithm_traj_opt import AlgorithmTrajOpt
 from algorithms.policy.policy_lqr import PolicyLQR
 from utility import deg2rad, rad2deg, strcmp
 
+# append Dipendra and Alex's code paths 
+sys.path.append('../')
+from lambgrid.transition import Transition
+from lambgrid.buffer import Buffer
+from lambgrid.value_iter import value_iteration
 # Flags from expert controller expt
 flags.DEFINE_string('experiment', 'inverted_pendulum', 'experiment name') #default = inverted_pendulum
 flags.DEFINE_string('record_dir', '', 'experiment name. This is set from hyperparams file')
@@ -131,6 +136,9 @@ class LatentLearner(object):
             elif strcmp(self.controller_type, 'learned'):
                 self._hyperparams['agent']['T'] = int(1e6)
                 self.agent.T = int(1e6)
+                
+                buffer = Buffer(self._hyperparams['iterations'])
+
 
                 pol = [PolicyPriorGMM(self._hyperparams['algorithm']['prior']) for cond in self._train_idx]
                 for itr in range(self._hyperparams['iterations']):
