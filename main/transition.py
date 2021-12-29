@@ -5,9 +5,10 @@ import statistics
 
 class Transition:
 
-    def __init__(self, ncodes, num_actions): 
+    def __init__(self, args, ncodes, num_actions): 
         self.ncodes = ncodes
         self.na = num_actions
+        self.args = args
         self.reset()
 
     def reset(self):
@@ -36,63 +37,21 @@ class Transition:
 
     def print_codes(self): 
 
-        count = 0
-        g_count = {} #g --> p(g)
-        l_count = {} #l --> p(l)
-        al2l = {} # p(l | a,l)
-        ag2g = {} # p(g | a,g)
-        l2g = {} # p(g | l)
-        g2l = {}
-        aset = {}
-
         for j in range(0,self.ncodes):
 
             if len(self.tr_lst[j]) > 0:
                 print('last', j, self.tr_lst[j], 'mode', statistics.mode(self.tr_lst[j]))
 
 
+        fh = open(self.args.log_fh, 'w')
+
+        count = 0
         for (glast, llast, a, gnext, lnext) in self.pair_lst:
             count += 1
-            if not gnext in g_count:
-                g_count[gnext] = 0
+            fh.write("learned:L%d ground:G%d action:a%d next_learned:L%d next_ground:G%d uri:E%d\n" % (llast, glast, a, lnext, gnext, count))
 
-            g_count[gnext] += 1
-            aset[a] = True
+        fh.close()
 
-            if not lnext in l_count:
-                l_count[lnext] = 0
-
-            l_count[lnext] += 1
-
-            if not (a, llast, lnext) in al2l:
-                al2l[(a, llast, lnext)] = 0
-
-            al2l[(a, llast, lnext)] += 1
-
-            if not (a, glast, gnext) in ag2g:
-                ag2g[(a, glast, gnext)] = 0
-
-            ag2g[(a, glast, gnext)] += 1
-
-            if not (lnext, gnext) in l2g:
-                l2g[(lnext, gnext)] = 0
-
-            l2g[(lnext, gnext)] += 1
-
-            if not (gnext, lnext) in g2l:
-                g2l[(gnext, lnext)] = 0
-            
-            g2l[(gnext, lnext)] += 1
-
-        #normalization
-        #for (g,l) 
-
-
-        print("=========================EVAL_SCRIPT============================")
-        #The learned codes are 0 to self.ncodes.  For each learned code we get the ground codes in tr_lst[j].  
-        
-        
-        raise Exception('done')
 
     def print_modes(self):
 

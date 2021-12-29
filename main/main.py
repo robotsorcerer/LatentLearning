@@ -49,6 +49,9 @@ parser.add_argument('--random_policy', type=str, choices=('true', 'false'), defa
 
 parser.add_argument('--use_ae', type=str, choices=('true', 'false'), default='false')
 
+parser.add_argument('--log_fh', type=str, default="log.txt")
+
+
 args = parser.parse_args()
 
 if args.data == 'mnist':
@@ -136,7 +139,7 @@ always_random = (args.random_policy == 'true')
 num_rand = args.num_rand_initial
 
 mybuffer = Buffer(ep_length=ep_length, max_k=genik_maxk)
-transition = Transition(ncodes, myenv.num_actions)
+transition = Transition(args, ncodes, myenv.num_actions)
 transition.reset()
 
 
