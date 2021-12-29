@@ -1,0 +1,46 @@
+FROM amd64/ros:latest
+LABEL maintainer "lekanmolu@microsoft.com"
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+
+# setup environment
+RUN locale-gen en_US.UTF-8
+ENV LANG en_US.UTF-8
+
+ENV TERM xterm
+
+RUN apt-get update && apt-get install -y --allow-unauthenticated \
+  build-essential \
+  python-dev \
+  swig \
+  python-pygame \
+  python3-pip \
+  git \
+	gcc \
+	g++ \
+	wget \
+	make \
+	vim \
+	curl
+	&& rm -rf /var/lib/apt/lists/*
+
+# clone box 2d and install
+RUN mkdir -p /home/johndoe/Downloads
+
+ENV DOWN_DIR=/home/johndoe/Downloads
+
+RUN cd $DOWN_DIR \
+    && git clone https://github.com/pybox2d/pybox2d \
+    && cd pybox2d && python setup.py build
+
+RUN wget https://bootstrap.pypa.io/get-pip.py \
+		&& python ./get-pip.py \
+		&& apt-get install python-pip \
+    && rm get-pip.py
+
+COPY robots $DOWN_DIR
+
+RUN cd $DOWN_DIR \
+		&& pip install -r requirements
+
+RUN  echo   " ===========  Build Complete  =========   "
