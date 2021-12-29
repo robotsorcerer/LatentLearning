@@ -24,7 +24,8 @@ from torch.autograd import Variable, grad
 import random
 import numpy as np
 from torchvision.utils import save_image
-from encoder import Classifier
+#from encoder import Classifier
+
 
 from env import Env
 from buffer import Buffer
@@ -56,8 +57,10 @@ args = parser.parse_args()
 
 if args.data == 'mnist':
     from env import Env
+    from encoders.mlp_pred1 import Classifier as Classifier
 elif args.data == 'maze':
     from grid_4room_env import Env
+    from encoders.mlp_pred1 import Classifier as Classifier
 else:
     raise Exception()
 
