@@ -11,7 +11,7 @@ class InvertedPendulum(Framework):
     def __init__(self, x0, target, render, integrator):
         self.render = render
         if self.render:
-            super(InvertedPendulum, self).__init__()
+            super(InvertedPendulum, self).__init__(render)
         else:
             self.world = b2.b2World(gravity=(0, -10), doSleep=True)
 

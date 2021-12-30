@@ -152,7 +152,7 @@ def main(argv):
     flags.DEFINE_boolean('quit', True, 'quit GUI automatically when finished')
     flags.DEFINE_boolean('silent', False, 'silent or verbose')
     flags.DEFINE_string('controller_type', 'learned', 'analytic|learned >>  Run analytic/gmm-clf/prob movement primitives.')
-    flags.DEFINE_boolean('record', False, 'record screen if generating trajs')
+    flags.DEFINE_boolean('record', True, 'record observations if generating trajs')
     flags.DEFINE_integer('seed', 123, 'system random seed')
 
     FLAGS = flags.FLAGS

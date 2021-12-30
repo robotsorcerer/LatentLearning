@@ -221,7 +221,7 @@ class PygameFramework(FrameworkBase):
         self.gui_table = None
         self.setup_keys()
 
-    def __init__(self):
+    def __init__(self, render):
         super(PygameFramework, self).__init__()
 
         self.__reset()
@@ -233,6 +233,12 @@ class PygameFramework(FrameworkBase):
         pygame.init()
         caption = self.name + " Testbed."
         pygame.display.set_caption(caption)
+
+        if not render:
+            # for Linux servers with no explicit video drivers, use the dummy video driver
+            # http://www.pygame.org/wiki/DummyVideoDriver
+            import os 
+            os.environ['SDL_VIDEODRIVER']='dummy'
 
         # Screen and debug draw
         self.screen = pygame.display.set_mode((640, 480))
