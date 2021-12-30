@@ -84,7 +84,7 @@ agent = {
     'type': AgentBox2D,
     'target_state' : np.array([0.0]),
     'world' : InvertedPendulum,
-    'render' : True,
+    'render' : False,
     'x0': np.array([[deg2rad(30), np.pi, 0, 0, 0, 0, 0],
                     [deg2rad(60), np.pi, 0, 0, 0, 0, 0],
                     [deg2rad(90), np.pi, 0, 0, 0, 0, 0],
@@ -100,7 +100,7 @@ agent = {
     'conditions': common['conditions'],
     'pos_body_idx': np.array([]),
     'pos_body_offset': np.array([]),
-    'T': 1e6,
+    'T': 100,
     'sensor_dims': SENSOR_DIMS,
     'state_include': [k for k in SENSOR_DIMS.keys()],
     'obs_include': [],
@@ -168,6 +168,10 @@ config = {
     'agent': agent,
     'gui_on': True,
     'algorithm': algorithm,
+}
+
+algorithm['latent_policy'] = {
+    'action_set': [-10, -5, 0, 5, 10],
 }
 
 common['info'] = generate_experiment_info(config)

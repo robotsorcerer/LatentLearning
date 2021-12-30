@@ -78,7 +78,12 @@ class AgentBox2D(Agent):
         self._worlds[condition].run()
         self._worlds[condition].reset_world()
         b2d_X = self._worlds[condition].get_state()
+        # if verbose:
+        #     print('state: ', b2d_X)
+        #     print('self.T: ', self.T)
+        #     print('self.U: ', self.dU)
         new_sample = self._init_sample(b2d_X)
+        # print(new_sample)
         U = np.zeros([self.T, self.dU])        
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
@@ -86,7 +91,10 @@ class AgentBox2D(Agent):
             noise = np.zeros((self.T, self.dU))
         for t in range(self.T):
             obs_t = new_sample.get_obs(t=t)
-            U[t, :] = policy[condition].act(new_sample, t, random)
+            print('obs_t ', obs_t)
+            print('self._worlds[condition] ', self._worlds[condition])
+            print(self._worlds[condition].screen)
+            U[t, :] = policy[condition].act(new_sample, t, noise)
             if (t+1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
                     self._worlds[condition].run_next(U[t, :])

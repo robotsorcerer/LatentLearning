@@ -26,8 +26,10 @@ class Sample(object):
 
         self._X = np.empty((self.T, self.dX))
         self._X.fill(np.nan)
+
         self._obs = np.empty((self.T, self.dO))
         self._obs.fill(np.nan)
+        
         self._meta = np.empty(self.dM)
         self._meta.fill(np.nan)
 
