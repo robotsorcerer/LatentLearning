@@ -2,6 +2,7 @@ __all__ = ["InvertedPendulum"]
 
 import Box2D as b2
 import numpy as np
+import pygame
 from agents.box2d.framework import Framework
 from agents.box2d.settings import fwSettings
 from utility import rad2deg
@@ -10,10 +11,10 @@ class InvertedPendulum(Framework):
     name = "Inverted Pendulum"
     def __init__(self, x0, target, render, integrator):
         self.render = render
-        if self.render:
-            super(InvertedPendulum, self).__init__(render)
-        else:
-            self.world = b2.b2World(gravity=(0, -10), doSleep=True)
+        # if self.render:
+        super(InvertedPendulum, self).__init__(render)
+        # else:
+        #     self.world = b2.b2World(gravity=(0, -10), doSleep=True)
 
         #set body gravity to zero
         self.world.gravity = (0.0, 0.0)
@@ -132,5 +133,11 @@ class InvertedPendulum(Framework):
         """Retrieves the state of the point mass"""
         state = {'JOINT_ANGLES': np.array([self.joint1.angle]),
                  'JOINT_VELOCITIES': np.array([self.joint1.speed]),
-                 'END_EFFECTOR_POINTS': np.append(np.array(self.body1.position),[0])}
+                 'END_EFFECTOR_POINTS': np.append(np.array(self.body1.position),[0]), 
+                # https://github.com/5h00T/avoid_game_env/blob/2b4f35791cffde417d1020ee7384268da9340db0/gym_avoid_game/envs/avoid_game_env.py#L34
+                'OBSERVATIONS': pygame.surfarray.array3d(self.screen).T, # will be 3 X 480 X 640
+                }
         return state
+
+    def get_obs(self):
+        "retrieves the observation matrix from the sensor"

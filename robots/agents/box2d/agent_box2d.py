@@ -7,12 +7,12 @@ from agents.agent import Agent
 from agents.agent_utils import generate_noise, setup
 from agents.config import AGENT_BOX2D
 from samples.sample import Sample
-from control.matlab import *
+from algorithms.policy.policy_lqr import PolicyLQR
 
 import logging
 logger = logging.getLogger(__name__)
 
-import pygame
+# import pygame
 from absl import flags
 FLAGS = flags.FLAGS
 
@@ -73,27 +73,32 @@ class AgentBox2D(Agent):
             condition (int): Which condition setup to run.
             verbose (boolean): Whether or not to plot the trial (not used here).
             save (boolean): Whether or not to store the trial into the samples.
-            noisy (boolean): Whether or not to use noise during sampling.
+            noisy (boolean): Whether or not to inject noise during sampling.
+
+        Returns:
+            new_sample: Sample object (see the Sample class in samples/sample.py) containing the following:
+            .states: Parameters that describe the robot's kinematics or dnamics with the least amount of information suh as:
+                .JOINT_ANGLES: A 7-DOF Numpy object that indicates each joint angle of the tobot for every time step in an episode
+                    If the robot is underactuated w.r.t this # of DOFs, pick the first n-dofs that are actuated.
+                .JOINT_VELOCITIES: Similar to JOINT_ANGLES except that the elements of the Numoy array indicate joint velocities.
+                .END_EFFECTOR_POINTS: Position of the end effector of the robots in Cartesian coordinates.
+            .observations
+                .OBSERVATIONS: A screenshot of the simulation testbed at every time step within an episode. For Box2D Game Engine, this is 3 X 640 X 480.
         """
         self._worlds[condition].run()
         self._worlds[condition].reset_world()
         b2d_X = self._worlds[condition].get_state()
-        # if verbose:
-        #     print('state: ', b2d_X)
-        #     print('self.T: ', self.T)
-        #     print('self.U: ', self.dU)
+        # self.dO = b2d_X['OBSERVATIONS'].shape
+
         new_sample = self._init_sample(b2d_X)
-        # print(new_sample)
+
         U = np.zeros([self.T, self.dU])        
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
         else:
             noise = np.zeros((self.T, self.dU))
-        for t in range(self.T):
-            obs_t = new_sample.get_obs(t=t)
-            print('obs_t ', obs_t)
-            print('self._worlds[condition] ', self._worlds[condition])
-            print(self._worlds[condition].screen)
+        for t in range(self.T):         
+            print('t: ', t)  
             U[t, :] = policy[condition].act(new_sample, t, noise)
             if (t+1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
@@ -101,22 +106,16 @@ class AgentBox2D(Agent):
                 b2d_X = self._worlds[condition].get_state()
                 self._set_sample(new_sample, b2d_X, t)
 
-                if np.abs(b2d_X['JOINT_ANGLES'].take(0)  \
-                        -np.pi+self._worlds[condition].x0.take(1))<= .1:
-                    self.counter += 1
+                # if we are using a classical control law, stop the simulation  when we reach steady state.
+                if isinstance(policy, PolicyLQR):
+                    if np.abs(b2d_X['JOINT_ANGLES'].take(0)  \
+                            -np.pi+self._worlds[condition].x0.take(1))<= .1:
+                        self.counter += 1
 
-                if FLAGS.record:
-                    filename = f"{FLAGS.record_dir}/screen_{condition}_{t}.jpg"
-                    to_app = np.expand_dims(np.asarray([filename, b2d_X['JOINT_ANGLES'], \
-                            b2d_X['JOINT_VELOCITIES'], b2d_X['END_EFFECTOR_POINTS'],\
-                            U[t, :]], dtype='object'), axis=0)
-                    self.recorded_states = np.append(self.recorded_states, to_app, axis=0) #((filename.split('/')[-1], U[t, :]))
-                    pygame.image.save( self._worlds[condition].screen, filename )
-
-                if self.counter>self._hyperparams['stopping_condition']:
-                    logger.debug(f"Terminating for condition {condition} since we appear to have reached steady state.")
-                    # self.reset(self.T) # either call this here or in main
-                    break
+                    if self.counter>self._hyperparams['stopping_condition']:
+                        logger.debug(f"Terminating for condition {condition} since we appear to have reached steady state.")
+                        # self.reset(self.T) # either call this here or in main
+                        break
 
         new_sample.set('ACTION', U)
 

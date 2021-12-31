@@ -20,7 +20,11 @@ SENSOR_DIMS = {
     'JOINT_ANGLES': 1,
     'JOINT_VELOCITIES': 1,
     'END_EFFECTOR_POINTS': 3,
-    'ACTION': 2
+    'ACTION': 2,
+}
+
+OBS_DIMS = {
+    'OBSERVATIONS': (3, 480, 640)
 }
 
 EXP_DIR = 'experiments/inverted_pendulum/'
@@ -102,8 +106,9 @@ agent = {
     'pos_body_offset': np.array([]),
     'T': 100,
     'sensor_dims': SENSOR_DIMS,
+    'obs_dims': OBS_DIMS,
     'state_include': [k for k in SENSOR_DIMS.keys()],
-    'obs_include': [],
+    'obs_include': [k for k in OBS_DIMS.keys()],
     'integrator': inv_pend_rk4,
     'stopping_condition': 100, # Stopping condition for steady state
 }
@@ -172,6 +177,7 @@ config = {
 
 algorithm['latent_policy'] = {
     'action_set': [-10, -5, 0, 5, 10],
+    'agent': agent['type'](agent)
 }
 
 common['info'] = generate_experiment_info(config)

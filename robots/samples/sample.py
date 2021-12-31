@@ -2,7 +2,7 @@ __all__ = ["SampleList"]
 __comment__ = """ This file defines the sample class.
                     Ripped off GPS Code."""
 
-
+import pygame
 import numpy as np
 from algorithms.protocols import ACTION
 
@@ -27,7 +27,7 @@ class Sample(object):
         self._X = np.empty((self.T, self.dX))
         self._X.fill(np.nan)
 
-        self._obs = np.empty((self.T, self.dO))
+        self._obs = np.empty(((self.T,)+ self.dO))
         self._obs.fill(np.nan)
         
         self._meta = np.empty(self.dM)
@@ -45,8 +45,6 @@ class Sample(object):
                 self._data[sensor_name] = \
                         np.empty((self.T,) + sensor_data.shape)
                 self._data[sensor_name].fill(np.nan)
-            # fill with observation from simuation for time step when we
-            # have no samples orig (LekMent)
             self._data[sensor_name][t, :] = sensor_data
             self._X[t, :].fill(np.nan)
             self._obs[t, :].fill(np.nan)
