@@ -118,7 +118,7 @@ class LatentLearner(object):
                 # self._hyperparams['agent']['T'] = int(1e6)
                 # self.agent.T = int(1e6)
                 
-                pol = [PolicyLatent(self._hyperparams['algorithm']['latent_policy']) for cond in self._train_idx]
+                pol = [PolicyLatent(self._hyperparams['algorithm']['latent_policy'], self.agent) for cond in self._train_idx]
                 for itr in range(self._hyperparams['iterations']):
                     logger.info(f"Running Latent States Learner on iteration {itr}/{self._hyperparams['iterations']}")
                     for cond in range(self._conditions):

@@ -177,7 +177,7 @@ config = {
 
 algorithm['latent_policy'] = {
     'action_set': [-10, -5, 0, 5, 10],
-    'agent': agent['type'](agent)
+    'agent': agent
 }
 
 common['info'] = generate_experiment_info(config)

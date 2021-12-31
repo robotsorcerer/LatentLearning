@@ -97,8 +97,7 @@ class AgentBox2D(Agent):
             noise = generate_noise(self.T, self.dU, self._hyperparams)
         else:
             noise = np.zeros((self.T, self.dU))
-        for t in range(self.T):         
-            print('t: ', t)  
+        for t in range(self.T):   
             U[t, :] = policy[condition].act(new_sample, t, noise)
             if (t+1) < self.T:
                 for _ in range(self._hyperparams['substeps']):

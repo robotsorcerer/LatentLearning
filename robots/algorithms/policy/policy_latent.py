@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 class PolicyLatent(Policy):
 
-    def __init__(self, config):
+    def __init__(self, config, agent):
         Policy.__init__(self)
         self.action_set = config['action_set']
-        self.agent      = config['agent']
+        self.agent      = agent
 
     def act(self, new_sample, t, noisy=False):
         """
@@ -33,13 +33,9 @@ class PolicyLatent(Policy):
             random: Choose action randomly
         """
         act_random = True
+        u = np.zeros((self.agent.dU))
         if act_random:
-            print(self.action_set)
-            print(self.agent)
-            u = np.zeros((self.agent.dX, 1))
-            u[:2,:] = random.sample(self.action_set, k=self.agent.dU)
-            print('after u')
-            print('u ', u)
+            u = random.sample(self.action_set, k=self.agent.dU)
         else: #use neural network policy akin to Alex's policy config
             X_t = new_sample.get_X(t=t)
             obs_t = new_sample.get_obs(t=t)
