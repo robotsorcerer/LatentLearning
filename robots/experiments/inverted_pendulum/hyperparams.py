@@ -16,31 +16,6 @@ from utility.robot_utils import generate_experiment_info
 
 from utility import deg2rad
 
-SENSOR_DIMS = {
-    'JOINT_ANGLES': 1,
-    'JOINT_VELOCITIES': 1,
-    'END_EFFECTOR_POINTS': 3,
-    'ACTION': 2,
-}
-
-OBS_DIMS = {
-    'OBSERVATIONS': (3, 480, 640)
-}
-
-EXP_DIR = 'experiments/inverted_pendulum/'
-
-
-common = {
-    'experiment_name': 'inv_pend_expt' + '_' + \
-            datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
-    'experiment_dir': EXP_DIR,
-    'data_files_dir': EXP_DIR + 'data_files/',
-    'log_filename': EXP_DIR + 'log.txt',
-    'joints_filename': EXP_DIR + 'joints.txt',
-    'costs_filename': EXP_DIR + 'costs.txt',
-    'conditions': 1,
-}
-
 # damped pendulum rhs of ode
 def inv_pendulum_ode(x, m, l, b=0.5, g=10):
     '''
@@ -84,6 +59,33 @@ def inv_pend_rk4(x, m, l):
 
     return list(X)
 
+
+SENSOR_DIMS = {
+    'JOINT_ANGLES': 1,
+    'JOINT_VELOCITIES': 1,
+    'END_EFFECTOR_POINTS': 3,
+    'ACTION': 2,
+}
+
+OBS_DIMS = {
+    'OBSERVATIONS': (3, 480, 640)
+}
+
+EXP_DIR = 'experiments/inverted_pendulum/'
+
+
+common = {
+    'experiment_name': 'inv_pend_expt' + '_' + \
+            datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M'),
+    'experiment_dir': EXP_DIR,
+    'data_files_dir': EXP_DIR + 'data_files/',
+    'log_filename': EXP_DIR + 'log.txt',
+    'joints_filename': EXP_DIR + 'joints.txt',
+    'costs_filename': EXP_DIR + 'costs.txt',
+    'conditions': 10, #10,
+    'num_samples': 5, #5,
+}
+
 agent = {
     'type': AgentBox2D,
     'target_state' : np.array([0.0]),
@@ -97,7 +99,9 @@ agent = {
                     [deg2rad(180), np.pi, 0, 0, 0, 0, 0],
                     [deg2rad(210), np.pi, 0, 0, 0, 0, 0],
                     [deg2rad(240), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(270), np.pi, 0, 0, 0, 0, 0],]), #five initi conditions, diff starting angles
+                    [deg2rad(270), np.pi, 0, 0, 0, 0, 0],
+                    [deg2rad(300), np.pi, 0, 0, 0, 0, 0],
+                    ]), #five initi conditions, diff starting angles
     'rk': 0,
     'dt': 0.05,
     'substeps': 5,
@@ -112,6 +116,8 @@ agent = {
     'integrator': inv_pend_rk4,
     'stopping_condition': 100, # Stopping condition for steady state
 }
+
+
 
 algorithm = {
     'type': AlgorithmTrajOpt,
@@ -167,7 +173,7 @@ algorithm['traj_opt'] = {
 
 config = {
     'iterations': 10,
-    'num_samples': 5,
+    'num_samples': common['num_samples'], #5,
     'verbose_trials': 5,
     'common': common,
     'agent': agent,

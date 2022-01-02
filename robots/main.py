@@ -8,6 +8,7 @@ __status__ 		= "Testing"
 __date__ 		= "Nov. 2021 -- January 2022"
 
 import time
+from datetime import datetime
 import random
 import sys, os
 import logging
@@ -16,24 +17,27 @@ import importlib
 import numpy as np
 from absl import flags, app
 
-# torch and nns
-# import torch
-# import torch.nn as nn
-# import torch.nn.functional as F
-# import torch.optim as optim
-# from torchvision import datasets, transforms
-
 # agent, its dynamics, and its poldocicies
 from os.path import dirname , abspath, join, expanduser
 sys.path.append(dirname(dirname(abspath(__file__))))
 from algorithms.policy.policy import Policy
 from algorithms.policy.policy_latent import PolicyLatent
 from algorithms.algorithm_traj_opt import AlgorithmTrajOpt
-from algorithms.policy.policy_lqr import PolicyLQR
-from utility import deg2rad, rad2deg, strcmp
+from utility import *
 
 # append Dipendra and Alex's code paths 
 sys.path.append('../')
+
+flags.DEFINE_string('experiment', 'inverted_pendulum', 'experiment name') #default = inverted_pendulum/double_pendulum
+flags.DEFINE_string('record_dir', join(expanduser("~"), 'Downloads'), 'Where to dump the images.')
+flags.DEFINE_boolean('quit', True, 'quit GUI automatically when finished')
+flags.DEFINE_boolean('silent', False, 'silent or verbose')
+flags.DEFINE_string('controller_type', 'learned', 'analytic|learned >>  Run analytic/gmm-clf/prob movement primitives.')
+flags.DEFINE_boolean('record', True, 'record observations if generating trajs')
+flags.DEFINE_integer('seed', 123, 'system random seed')
+
+FLAGS = flags.FLAGS
+
 
 class LatentLearner(object):
     def __init__(self, config):
@@ -52,6 +56,7 @@ class LatentLearner(object):
         config['algorithm']['agent'] = self.agent
         config['algorithm']['init_traj_distr']['agent'] = self.agent
         self.algorithm = AlgorithmTrajOpt(config['algorithm'])
+        self.datalogger = DataLogger()
 
     def _take_sample(self, pol, cond, sample_idx):
         """
@@ -80,6 +85,7 @@ class LatentLearner(object):
 
         try:
             if strcmp(self.controller_type,'analytic'):
+                from algorithms.policy.policy_lqr import PolicyLQR
                 "use lqr to compute a feedback linearizable controller."
                 self._hyperparams['agent']['T'] = int(1e6)
                 self.agent.T = int(1e6)
@@ -102,22 +108,21 @@ class LatentLearner(object):
                             self._take_sample(pol, cond, sample_idx)
                             # self.agent.reset(self._hyperparams['agent']['T'])
 
-                trajectory_samples = [
-                                        self.agent.get_samples(cond, -self._hyperparams['num_samples'])
-                                        for cond in self._train_idx
-                                        ]
-                # Clear agent samples.
-                self.agent.clear_samples()
-                self.agent.reset(cond)
+                    trajectory_samples = [
+                                            self.agent.get_samples(cond, -self._hyperparams['num_samples'])
+                                            for cond in self._train_idx
+                                            ]
+                    # Clear agent samples.
+                    self.agent.clear_samples()
+                    self.agent.reset(cond)
 
 
                 # run your latent state shenanigans here
                 self._take_iteration(trajectory_samples)
 
             elif strcmp(self.controller_type, 'learned'):
-                # self._hyperparams['agent']['T'] = int(1e6)
-                # self.agent.T = int(1e6)
                 
+                all_trajs = []
                 pol = [PolicyLatent(self._hyperparams['algorithm']['latent_policy'], self.agent) for cond in self._train_idx]
                 for itr in range(self._hyperparams['iterations']):
                     logger.info(f"Running Latent States Learner on iteration {itr}/{self._hyperparams['iterations']}")
@@ -130,12 +135,14 @@ class LatentLearner(object):
                                           self.agent.get_samples(cond, -self._hyperparams['num_samples'])
                                                 for cond in self._train_idx
                                         ]
+                    fname = join(FLAGS.record_dir, f"sample_{itr}.pkl")
+                    self.datalogger.pickle(fname, trajectory_samples)
                     # Clear agent samples.
                     self.agent.clear_samples()
-                    # self.agent.reset(cond)
 
                     # take an algo iteration
-                    self._take_iteration(itr, trajectory_samples)
+                    # self._take_iteration(itr, trajectory_samples)
+                # self._take_iteration(itr, trajectory_samples)
             else:
                 raise ValueError('Unknown experiment type.')
 
@@ -146,16 +153,6 @@ class LatentLearner(object):
 
 def main(argv):
     del argv
-    # Flags from expert controller expt                  
-    flags.DEFINE_string('experiment', 'inverted_pendulum', 'experiment name') #default = inverted_pendulum/double_pendulum
-    flags.DEFINE_string('record_dir', '/tmp/', 'Where to dump the images.')
-    flags.DEFINE_boolean('quit', True, 'quit GUI automatically when finished')
-    flags.DEFINE_boolean('silent', False, 'silent or verbose')
-    flags.DEFINE_string('controller_type', 'learned', 'analytic|learned >>  Run analytic/gmm-clf/prob movement primitives.')
-    flags.DEFINE_boolean('record', True, 'record observations if generating trajs')
-    flags.DEFINE_integer('seed', 123, 'system random seed')
-
-    FLAGS = flags.FLAGS
     # FLAGS(sys.argv) # we need to explicitly to tell flags library to parse argv before we can access FLAGS.xxx.
 
     # set expt seed globally
@@ -163,7 +160,7 @@ def main(argv):
     np.random.seed(FLAGS.seed)
 
     # flags.mark_flag_as_required('record_dir', '')
-    FLAGS.record_dir = join(FLAGS.record_dir, FLAGS.experiment)
+    FLAGS.record_dir = join(FLAGS.record_dir, FLAGS.experiment, f"{datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M')}")
     if not os.path.exists( FLAGS.record_dir):
         os.makedirs(FLAGS.record_dir)
 

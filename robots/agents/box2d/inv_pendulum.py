@@ -138,6 +138,3 @@ class InvertedPendulum(Framework):
                 'OBSERVATIONS': pygame.surfarray.array3d(self.screen).T, # will be 3 X 480 X 640
                 }
         return state
-
-    def get_obs(self):
-        "retrieves the observation matrix from the sensor"

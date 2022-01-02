@@ -6,7 +6,7 @@
 # The only complex data structure here is a learned_state.  A learned state has several fields.
 
 from dataclasses import dataclass
-class learned_action:
+class LearnedAction:
     next_states: list #of int, index into learned_state
     counts: list #of int, count of observed transitions
     

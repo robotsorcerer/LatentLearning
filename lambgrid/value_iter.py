@@ -1,6 +1,6 @@
 
 import sys
-import gym
+#import gym
 import numpy as np
 
 # Calculate a state-value function

@@ -115,6 +115,8 @@ class AgentBox2D(Agent):
                         logger.debug(f"Terminating for condition {condition} since we appear to have reached steady state.")
                         # self.reset(self.T) # either call this here or in main
                         break
+        
+        # print(f'condition: {condition}, {np.linalg.norm(U)}')
 
         new_sample.set('ACTION', U)
 
