@@ -1,9 +1,11 @@
 __all__ = ["AgentBox2D"]
 
 """ This file defines an agent for the Box2D simulator. """
+import os
 import copy
 import numpy as np
 from agents.agent import Agent
+from os.path import join, expanduser
 from agents.agent_utils import generate_noise, setup
 from agents.config import AGENT_BOX2D
 from samples.sample import Sample
@@ -32,10 +34,12 @@ class AgentBox2D(Agent):
                           self._hyperparams["target_state"],
                           self._hyperparams["render"],
                           self._hyperparams["integrator"])
+        # print('here we are')
         self.counter = 0  # use this for early stopping during data collection
         self.recorded_states = np.asarray([['filename', 'joint_angle', 'joint_velocities', \
                                             "end_effector_points", "joint angle controls"]])
-        self.episode_length= 100
+        self.save_dir = config['save_dir']
+        
     def _setup_conditions(self):
         """
         Helper method for setting some hyperparameters that may vary by
@@ -63,7 +67,7 @@ class AgentBox2D(Agent):
         self.T = T
         self.counter = 0
 
-    def sample(self, policy, condition, verbose=False, save=True, noisy=True):
+    def sample(self, sample_grp, policy, condition, verbose=False, save=True, noisy=True):
         """
         Runs a trial and constructs a new sample containing information
         about the trial.
@@ -88,7 +92,6 @@ class AgentBox2D(Agent):
         self._worlds[condition].run()
         self._worlds[condition].reset_world()
         b2d_X = self._worlds[condition].get_state()
-        # self.dO = b2d_X['OBSERVATIONS'].shape
 
         new_sample = self._init_sample(b2d_X)
 
@@ -113,10 +116,10 @@ class AgentBox2D(Agent):
 
                     if self.counter>self._hyperparams['stopping_condition']:
                         logger.debug(f"Terminating for condition {condition} since we appear to have reached steady state.")
-                        # self.reset(self.T) # either call this here or in main
                         break
-        
-        # print(f'condition: {condition}, {np.linalg.norm(U)}')
+                # fname = join(self.save_dir, f"sample_{condition}_{t}.jpg")
+                # print('saving: ', fname)
+                self._worlds[condition].save_iter(sample_grp, t)
 
         new_sample.set('ACTION', U)
 
@@ -133,5 +136,6 @@ class AgentBox2D(Agent):
         return sample
 
     def _set_sample(self, sample, b2d_X, t):
+        # print(b2d_X.keys())
         for sensor in b2d_X.keys():
             sample.set(sensor, np.array(b2d_X[sensor]), t=t+1)

@@ -1,8 +1,9 @@
 __all__ = ["InvertedPendulum"]
 
+import h5py
+import pygame
 import Box2D as b2
 import numpy as np
-import pygame
 from agents.box2d.framework import Framework
 from agents.box2d.settings import fwSettings
 from utility import rad2deg
@@ -135,6 +136,23 @@ class InvertedPendulum(Framework):
                  'JOINT_VELOCITIES': np.array([self.joint1.speed]),
                  'END_EFFECTOR_POINTS': np.append(np.array(self.body1.position),[0]), 
                 # https://github.com/5h00T/avoid_game_env/blob/2b4f35791cffde417d1020ee7384268da9340db0/gym_avoid_game/envs/avoid_game_env.py#L34
-                'OBSERVATIONS': pygame.surfarray.array3d(self.screen).T, # will be 3 X 480 X 640
+                'OBSERVATIONS': np.asarray(pygame.surfarray.array3d(self.screen).T), # will be 3 X 480 X 640
                 }
+        # print('state: ', state)
         return state
+    
+    # def save_screen(self, fname):
+    #     """Save screenshot for onward processing by latent s[ace learner."""
+    #     if not self.render:
+    #         return ValueError("You are running pygame without video device.")
+    #     # pygame.image.save(self.screen, fname)
+    #     img_arr = self.get_state()
+
+    def save_iter(self, grp_name, t):
+        """Save screenshot for onward processing by latent s[ace learner."""
+        if not self.render:
+            return ValueError("You are running pygame without video device.")
+        # pygame.image.save(self.screen, fname)
+        state =  self.get_state()
+        for k,v in state.items():
+            grp_name.create_dataset(f"{t}/{k}", data=v, compression="gzip", dtype=v.dtype)

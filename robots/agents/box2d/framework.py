@@ -404,7 +404,7 @@ class FrameworkBase(b2ContactListener):
         self.textLine = self.TEXTLINE_START
 
         # Draw the name of the test running
-        self.Print(self.name, (127, 127, 255))
+        # self.Print(self.name, (127, 127, 255))
 
         if self.description:
             # Draw the name of the test running

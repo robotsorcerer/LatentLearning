@@ -46,6 +46,8 @@ class Agent(object):
             # i += dim
         self.dO = dim
 
+        # print('dO ', self.dO)
+
         # List of indices for each data type in meta data.
         self._meta_idx, i = [], 0
         for sensor in self.meta_data_types:

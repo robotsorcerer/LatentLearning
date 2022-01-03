@@ -1,5 +1,6 @@
-absl-py
-numpy
+h5py
 scipy
+numpy
 control
+absl-py
 scikit-image

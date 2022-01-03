@@ -36,7 +36,8 @@ class PolicyLQR(Policy):
             noise: Action noise. This will be scaled by the variance.
         """
         X_t = new_sample.get_X(t=t)
-        obs_t = new_sample.get_obs(t=t)
+        # this is not needed for data gathering
+        # obs_t = new_sample.get_obs(t=t)
 
         x = self.agent.integrator(X_t[:2])
 
