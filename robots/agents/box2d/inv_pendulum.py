@@ -61,7 +61,6 @@ class InvertedPendulum(Framework):
             enableLimit=False,
         )
 
-        # print('x0: ', x0, x0.shape)
         self.set_joint_angles(self.body1, x0[0])
         self.set_joint_angles(self.target1, target[0])
         self.target1.active = False
@@ -91,7 +90,6 @@ class InvertedPendulum(Framework):
     def set_joint_angles(self, body1, angle1):
         """ Converts the given absolute angle of the arms to joint angles"""
         pos = self.base.GetWorldPoint((0, 0))
-        # print(angle1, np.pi)
         body1.angle = angle1 + np.pi
         new_pos = body1.GetWorldPoint((0, self.fixture_length))
         body1.position += pos - new_pos
