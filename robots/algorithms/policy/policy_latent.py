@@ -7,10 +7,6 @@ from algorithms.policy.policy import Policy
 
 
 # some useful classes from Alex et. al.
-from lambgrid.transition import Transition
-from lambgrid.buffer import Buffer
-from lambgrid.value_iter import value_iteration
-
 
 import logging
 logger = logging.getLogger(__name__)

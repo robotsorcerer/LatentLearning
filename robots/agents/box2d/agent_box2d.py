@@ -6,10 +6,10 @@ import copy
 import h5py
 import numpy as np
 from agents.agent import Agent
-from os.path import join, expanduser
-from agents.agent_utils import generate_noise, setup
-from agents.config import AGENT_BOX2D
 from samples.sample import Sample
+from os.path import join, expanduser
+from agents.config import AGENT_BOX2D
+from agents.agent_utils import generate_noise, setup
 from algorithms.policy.policy_lqr import PolicyLQR
 
 import logging
@@ -35,12 +35,10 @@ class AgentBox2D(Agent):
                           self._hyperparams["target_state"],
                           self._hyperparams["render"],
                           self._hyperparams["integrator"])
-        # print('here we are')
         self.counter = 0  # use this for early stopping during data collection
         self.recorded_states = np.asarray([['filename', 'joint_angle', 'joint_velocities', \
                                             "end_effector_points", "joint angle controls"]])
         self.save_dir = config['save_dir']
-        # print(f'self.save_dir: {self.save_dir}')
         
     def _setup_conditions(self):
         """
@@ -97,6 +95,7 @@ class AgentBox2D(Agent):
         self._worlds[condition].run()
         self._worlds[condition].reset_world()
         b2d_X = self._worlds[condition].get_state()
+
         new_sample = self._init_sample(b2d_X)
         U = np.zeros([self.T, self.dU])        
         if noisy:
@@ -109,6 +108,7 @@ class AgentBox2D(Agent):
             U[t, :] = policy[condition].act(X_t, obs_t, t, noise)
             if (t+1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
+                    # print('got here')
                     self._worlds[condition].run_next(U[t, :])
                 b2d_X = self._worlds[condition].get_state()
                 self._set_sample(new_sample, b2d_X, t)

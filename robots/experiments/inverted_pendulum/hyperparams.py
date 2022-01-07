@@ -59,7 +59,6 @@ def inv_pend_rk4(x, m, l):
 
     return list(X)
 
-
 SENSOR_DIMS = {
     'JOINT_ANGLES': 1,
     'JOINT_VELOCITIES': 1,
@@ -73,6 +72,29 @@ OBS_DIMS = {
 
 EXP_DIR = 'experiments/inverted_pendulum/'
 
+x0 = np.array([[deg2rad(30), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(45), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(60), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(75), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(90), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(105), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(120), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(135), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(150), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(165), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(180), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(195), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(210), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(225), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(240), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(255), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(270), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(285), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(300), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(315), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(330), np.pi, 0, 0, 0, 0, 0],
+                [deg2rad(345), np.pi, 0, 0, 0, 0, 0],
+                ]) #five initi conditions, diff starting angles
 
 common = {
     'experiment_name': 'inv_pend_expt' + '_' + \
@@ -82,33 +104,23 @@ common = {
     'log_filename': EXP_DIR + 'log.txt',
     'joints_filename': EXP_DIR + 'joints.txt',
     'costs_filename': EXP_DIR + 'costs.txt',
-    'conditions': 10, #10,
-    'num_samples': 5, #5,
+    'conditions': len(x0),
+    'num_samples': 100, #5,
 }
 
 agent = {
     'type': AgentBox2D,
     'target_state' : np.array([0.0]),
     'world' : InvertedPendulum,
-    'render' : True,
-    'x0': np.array([[deg2rad(30), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(60), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(90), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(120), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(150), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(180), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(210), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(240), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(270), np.pi, 0, 0, 0, 0, 0],
-                    [deg2rad(300), np.pi, 0, 0, 0, 0, 0],
-                    ]), #five initi conditions, diff starting angles
+    'render' : False,
+    'x0': x0,
     'rk': 0,
     'dt': 0.05,
     'substeps': 5,
     'conditions': common['conditions'],
     'pos_body_idx': np.array([]),
     'pos_body_offset': np.array([]),
-    'T': 100,
+    'T': 150,
     'sensor_dims': SENSOR_DIMS,
     'obs_dims': OBS_DIMS,
     'state_include': [k for k in SENSOR_DIMS.keys()],
@@ -173,7 +185,7 @@ algorithm['traj_opt'] = {
 }
 
 config = {
-    'iterations': 10,
+    'iterations': 100,
     'num_samples': common['num_samples'], #5,
     'verbose_trials': 5,
     'common': common,

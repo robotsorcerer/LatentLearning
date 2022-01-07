@@ -101,7 +101,7 @@ class LatentLearner(object):
             if strcmp(self.controller_type,'analytic'):
                 from algorithms.policy.policy_lqr import PolicyLQR
                 "use lqr to compute a feedback linearizable controller."
-                self._hyperparams['agent']['T'] = int(1e6)
+                # self._hyperparams['agent']['T'] = int(1e6)
                 import h5py
 
                 # policy LQR assumes known dynamics
@@ -117,7 +117,7 @@ class LatentLearner(object):
 
                         # from different initial conditions, drive the robot to a home pose
                         for cond in range(self._conditions):
-                            print(f'condition_{cond:0>2}')
+                            # print(f'condition_{cond:0>2}')
                             cond_grp = h5file.create_group(f'condition_{cond:0>2}')
 
                             init_conds = np.asarray([np.ceil(rad2deg(x)) for x in self.agent._worlds[cond].x0])
