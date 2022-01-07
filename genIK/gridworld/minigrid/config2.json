@@ -1,0 +1,17 @@
+{
+  "num_actions": 5,
+  "actions": [0, 1, 2, 3, 4],
+  "horizon": 8,
+  "obs_dim": [56, 56, 3],
+  "agent_view_size": 7,
+  "width": 7,
+  "height": 7,
+  "tile_size": 120,
+  "num_circles": 4,
+  "circle_width": 30,
+  "circle_motion": 0.05,
+  "feature_type": "image",
+  "noise_type": "none",
+  "return_state": true,
+  "gamma": 1.0
+}

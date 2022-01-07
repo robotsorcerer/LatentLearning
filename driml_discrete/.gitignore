@@ -1,0 +1,10 @@
+
+*.pyc
+.DS_Store
+*results/
+build
+dist
+noisy_state_abstractions.egg-info
+.idea
+runs
+venv
