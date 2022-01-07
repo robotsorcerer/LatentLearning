@@ -1,1 +1,0 @@
-Namespace(L_coinv=1.0, L_dis=0.0, L_inv=1.0, L_ora=0.0, L_rat=0.0, batch_size=2048, cleanvis=False, cols=6, groups=2, latent_dims=2, learning_rate=0.003, n_embed=10, n_updates=3000, no_graphics=False, no_sigma=False, rearrange_xy=False, rows=6, save=False, seed=1, tag='empty_genIK_vq', type='genIK', use_proto=False, use_vq=True, video=False, walls='empty')

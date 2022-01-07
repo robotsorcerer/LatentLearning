@@ -82,7 +82,7 @@ common = {
     'log_filename': EXP_DIR + 'log.txt',
     'joints_filename': EXP_DIR + 'joints.txt',
     'costs_filename': EXP_DIR + 'costs.txt',
-    'conditions': 3, #10,
+    'conditions': 10, #10,
     'num_samples': 5, #5,
 }
 
@@ -108,14 +108,14 @@ agent = {
     'conditions': common['conditions'],
     'pos_body_idx': np.array([]),
     'pos_body_offset': np.array([]),
-    'T': 400,
+    'T': 100,
     'sensor_dims': SENSOR_DIMS,
     'obs_dims': OBS_DIMS,
     'state_include': [k for k in SENSOR_DIMS.keys()],
     'obs_include': [k for k in OBS_DIMS.keys()],
     'integrator': inv_pend_rk4,
     'stopping_condition': 100, # Stopping condition for steady state
-    'save_dir': EXP_DIR + "images/"
+    'save_dir': common['data_files_dir'] #EXP_DIR + "images/"
 }
 
 

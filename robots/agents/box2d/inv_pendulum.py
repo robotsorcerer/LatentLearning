@@ -148,11 +148,19 @@ class InvertedPendulum(Framework):
     #     # pygame.image.save(self.screen, fname)
     #     img_arr = self.get_state()
 
-    def save_iter(self, grp_name, t):
+    def save_iter(self, sample_grp, t):
         """Save screenshot for onward processing by latent s[ace learner."""
         if not self.render:
             return ValueError("You are running pygame without video device.")
         # pygame.image.save(self.screen, fname)
+        # with h5py.File(fname, 'a') as h5file:
+        #     cond_grp = h5file.create_group(f'condition_{cond:0>2}')
+
+
         state =  self.get_state()
         for k,v in state.items():
-            grp_name.create_dataset(f"{t}/{k}", data=v, compression="gzip", dtype=v.dtype)
+            if k=='OBSERVATIONS':
+                sample_grp.create_dataset(f"{k}_{t:0>3}", data=v, compression="gzip")#, dtype=v.dtype)
+            else:
+                sample_grp.create_dataset(f"{k}_{t:0>3}", data=v)#, dtype=v.dtype)
+

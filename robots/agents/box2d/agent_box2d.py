@@ -3,6 +3,7 @@ __all__ = ["AgentBox2D"]
 """ This file defines an agent for the Box2D simulator. """
 import os
 import copy
+import h5py
 import numpy as np
 from agents.agent import Agent
 from os.path import join, expanduser
@@ -39,6 +40,7 @@ class AgentBox2D(Agent):
         self.recorded_states = np.asarray([['filename', 'joint_angle', 'joint_velocities', \
                                             "end_effector_points", "joint angle controls"]])
         self.save_dir = config['save_dir']
+        # print(f'self.save_dir: {self.save_dir}')
         
     def _setup_conditions(self):
         """
@@ -62,9 +64,12 @@ class AgentBox2D(Agent):
         self.x0 = self._hyperparams["x0"]
         self._worlds = [world(self.x0[i], target, render, integrator)
                         for i in range(self._hyperparams['conditions'])]
+        # fnames = [join(self.save_dir, f"cond_{i}.hdf5") for i in range(self._hyperparams['conditions'])]
+        # self.h5dumps = [h5py.File(fname, 'a') for fname in fnames]
 
-    def reset(self, T):
-        self.T = T
+    def reset(self, condition):
+        # self.T = T
+        # self._worlds[condition] = 
         self.counter = 0
 
     def sample(self, sample_grp, policy, condition, verbose=False, save=True, noisy=True):
@@ -92,39 +97,40 @@ class AgentBox2D(Agent):
         self._worlds[condition].run()
         self._worlds[condition].reset_world()
         b2d_X = self._worlds[condition].get_state()
-
         new_sample = self._init_sample(b2d_X)
-
         U = np.zeros([self.T, self.dU])        
         if noisy:
             noise = generate_noise(self.T, self.dU, self._hyperparams)
         else:
             noise = np.zeros((self.T, self.dU))
         for t in range(self.T):   
-            U[t, :] = policy[condition].act(new_sample, t, noise)
+            X_t = new_sample.get_X(t=t)
+            obs_t = new_sample.get_obs(t=t)
+            U[t, :] = policy[condition].act(X_t, obs_t, t, noise)
             if (t+1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
                     self._worlds[condition].run_next(U[t, :])
                 b2d_X = self._worlds[condition].get_state()
                 self._set_sample(new_sample, b2d_X, t)
-
-                # if we are using a classical control law, stop the simulation  when we reach steady state.
+                x_small = self._worlds[condition].integrator(X_t[:self.dU])
+                new_sample._X[t+1,:][:self.dU] = x_small
                 if isinstance(policy, PolicyLQR):
                     if np.abs(b2d_X['JOINT_ANGLES'].take(0)  \
                             -np.pi+self._worlds[condition].x0.take(1))<= .1:
                         self.counter += 1
 
                     if self.counter>self._hyperparams['stopping_condition']:
-                        logger.debug(f"Terminating for condition {condition} since we appear to have reached steady state.")
-                        break
-                # fname = join(self.save_dir, f"sample_{condition}_{t}.jpg")
-                # print('saving: ', fname)
-                self._worlds[condition].save_iter(sample_grp, t)
-
+                        break            
+            self._worlds[condition].save_iter(sample_grp, t)
+            
+            # print(t, X_t)
         new_sample.set('ACTION', U)
+        # new_sample._X[t+1,:][:self.dU]  = self._worlds[condition].integrator(X_t[:self.dU])
+        # print('finished setting dU')
 
         if save:
             self._samples[condition].append(new_sample)
+
         return new_sample
 
     def _init_sample(self, b2d_X):
@@ -136,6 +142,5 @@ class AgentBox2D(Agent):
         return sample
 
     def _set_sample(self, sample, b2d_X, t):
-        # print(b2d_X.keys())
         for sensor in b2d_X.keys():
             sample.set(sensor, np.array(b2d_X[sensor]), t=t+1)

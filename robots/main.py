@@ -23,9 +23,13 @@ sys.path.append(dirname(dirname(abspath(__file__))))
 from algorithms.policy.policy import Policy
 from algorithms.policy.policy_latent import PolicyLatent
 from algorithms.algorithm_traj_opt import AlgorithmTrajOpt
+
+# Dynamics for transitions
+from algorithms.dynamics import Buffer
+
 from utility import *
 
-# append Dipendra and Alex's code paths 
+# append Dipendra and Alex's code paths
 sys.path.append('../')
 
 flags.DEFINE_string('experiment', 'inverted_pendulum', 'experiment name') #default = inverted_pendulum/double_pendulum
@@ -35,6 +39,8 @@ flags.DEFINE_boolean('silent', False, 'silent or verbose')
 flags.DEFINE_string('controller_type', 'analytic', 'analytic|learned >>  Run analytic/gmm-clf/prob movement primitives.')
 flags.DEFINE_boolean('record', True, 'record observations if generating trajs')
 flags.DEFINE_boolean('save', True, 'save trajectory samples?')
+flags.DEFINE_integer('start_itr', 0, 'iteration to start the simulation.')
+flags.DEFINE_integer('stop_itr', 1, 'iteration to stop the simulation.')
 flags.DEFINE_integer('seed', 123, 'system random seed')
 
 FLAGS = flags.FLAGS
@@ -52,7 +58,7 @@ class LatentLearner(object):
         self._conditions = config['common']['conditions']
         self.controller_type = config['args'].controller_type
 
-        # add save directory now 
+        # add save directory now
         config['agent']['save_dir'] = config['common']['data_files_dir']
         self.agent = config['agent']['type'](config['agent'])
         self._train_idx = range(self._conditions)
@@ -69,9 +75,9 @@ class LatentLearner(object):
         """
         self.agent.sample(sample_grp, pol, cond, \
                           verbose=(sample_idx<self._hyperparams['verbose_trials']), \
-                          save=True, noisy=False)
-        print('Resetting: ', self._hyperparams['agent']['T'])
-        self.agent.reset(self._hyperparams['agent']['T'])
+                          save=False, noisy=False)
+        # print('Resetting: ', self._hyperparams['agent']['T'])
+        # self.agent.reset(self._hyperparams['agent']['T'])
 
     def _take_iteration(self, itr, trajectory_samples):
         """
@@ -81,12 +87,15 @@ class LatentLearner(object):
         self.algorithm.iteration(trajectory_samples)
 
     def run(self, itr_start=0):
-        
+
         if self.FLAGS.silent:
             logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
         else:
             logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)
         logger = logging.getLogger(__name__)
+
+        start_itr = FLAGS.start_itr
+        stop_itr = FLAGS.stop_itr if (FLAGS.stop_itr is not self._hyperparams['iterations']) else self._hyperparams['iterations']
 
         try:
             if strcmp(self.controller_type,'analytic'):
@@ -97,53 +106,51 @@ class LatentLearner(object):
 
                 # policy LQR assumes known dynamics
                 pol = [PolicyLQR(self.agent._worlds[cond]) for cond in self._train_idx]
-                for itr in range(self._hyperparams['iterations']):
+                for itr in range(start_itr, stop_itr):
                     # filename for all states, actions and observatins in this episode
                     fname = join(FLAGS.record_dir, f"iter_{itr}.hdf5")
-                    os.rmdir(fname) if os.path.exists(fname) else None
-
-                    h5file = h5py.File(fname, 'a')
+                    os.remove(fname) if os.path.exists(fname) else None
 
                     logger.info(f"Running LQR Controller on iteration {itr}/{self._hyperparams['iterations']}")
 
-                    # from different initial conditions, drive the robot to a home pose
-                    for cond in range(self._conditions):
-                        cond_grp = h5file.create_group(f'condition_{cond:0>2}')
+                    with h5py.File(fname, 'a') as h5file:
 
-                        init_conds = np.asarray([np.ceil(rad2deg(x)) for x in self.agent._worlds[cond].x0])
-                        init_conds = init_conds[np.nonzero(init_conds)] #[int(x) for x in init_conds]
-                        logger.info(f'Joint angle(s) for this initial condition (degree): {init_conds[:-1]}')
-                        '''
-                            Apply the feedback controller about the linearized equilibrium at
-                            the vertical.
-                        '''
-                        for sample_idx in range(self._hyperparams['num_samples']):
-                            sample_grp = cond_grp.create_group("f'condition_{cond:0>2}/sample_{sample_idx}")
-                            self._take_sample(sample_grp, pol, cond, sample_idx)
+                        # from different initial conditions, drive the robot to a home pose
+                        for cond in range(self._conditions):
+                            print(f'condition_{cond:0>2}')
+                            cond_grp = h5file.create_group(f'condition_{cond:0>2}')
 
-                    # close this h5py file
-                    try:
-                        h5file.close()
-                    except:
-                        pass # Was already closed
-                    
+                            init_conds = np.asarray([np.ceil(rad2deg(x)) for x in self.agent._worlds[cond].x0])
+                            init_conds = init_conds[np.nonzero(init_conds)]
+
+                            logger.info(f'Joint angle(s) for this initial condition (degree): {init_conds[:-1]}')
+                            '''
+                                Apply the feedback controller about the linearized equilibrium at
+                                the vertical.
+                            '''
+
+                            for sample_idx in range(self._hyperparams['num_samples']):
+                                sample_grp = cond_grp.create_group(f"sample_{sample_idx:0>2}")
+                                self._take_sample(sample_grp, pol, cond, sample_idx)
+                                del sample_grp
+
                     trajectory_samples = [
                                             self.agent.get_samples(cond, -self._hyperparams['num_samples'])
                                             for cond in self._train_idx
                                             ]
+
                     # Clear agent samples.
                     self.agent.clear_samples()
                     self.agent.reset(cond)
-
 
                 # run your latent state shenanigans here
                 self._take_iteration(trajectory_samples)
 
             elif strcmp(self.controller_type, 'learned'):
-                
-                all_trajs = []
+
+                buffer = Buffer(self.agent.T, self.agent.dX, self.agent.dO, self.agent.dU)
                 pol = [PolicyLatent(self._hyperparams['algorithm']['latent_policy'], self.agent) for cond in self._train_idx]
-                for itr in range(self._hyperparams['iterations']):
+                for itr in range(start_itr, stop_itr):
                     logger.info(f"Running Latent States Learner on iteration {itr}/{self._hyperparams['iterations']}")
                     for cond in range(self._conditions):
                         logger.info(f'Gathering trajectory samples from initial condition: {rad2deg(self.agent._worlds[cond].x0.take(0)):.0f}')
@@ -173,19 +180,17 @@ class LatentLearner(object):
             os._exit(1)
 
 def main(argv):
-    del argv
-    # FLAGS(sys.argv) # we need to explicitly to tell flags library to parse argv before we can access FLAGS.xxx.
+    # del argv
+    FLAGS(sys.argv) # we need to explicitly to tell flags library to parse argv before we can access FLAGS.xxx.
 
     # set expt seed globally
     random.seed(FLAGS.seed)
     np.random.seed(FLAGS.seed)
 
     print('Running Experiment: ', FLAGS.experiment)
-    # print('non-flag arguments:', argv)
     hyperparams = importlib.import_module(f'experiments.{FLAGS.experiment}.hyperparams')
 
     config = hyperparams.config
-    # print(config)
     # flags.mark_flag_as_required('record_dir', '')
     FLAGS.record_dir = join(config['common']['data_files_dir']) #, f"{datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M')}")
     if not os.path.exists( FLAGS.record_dir):

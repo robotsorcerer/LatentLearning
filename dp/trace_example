@@ -1,5 +1,0 @@
-learned:A ground:a action:1 next_learned:B next_ground:b uri:/some/place
-learned:A ground:b action:1 next_learned:B next_ground:c uri:/some/other/place
-learned:A ground:b action:1 next_learned:C next_ground:c uri:/some/other3/place
-learned:A ground:b action:1 next_learned:C next_ground:d uri:/some/other4/place
-learned:B ground:a action:1 next_learned:C next_ground:b uri:/some/other/other/place
