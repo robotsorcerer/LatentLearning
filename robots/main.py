@@ -101,7 +101,7 @@ class LatentLearner(object):
             if strcmp(self.controller_type,'analytic'):
                 from algorithms.policy.policy_lqr import PolicyLQR
                 "use lqr to compute a feedback linearizable controller."
-                # self._hyperparams['agent']['T'] = int(1e6)
+                self._hyperparams['agent']['T'] = int(1e6)
                 import h5py
 
                 # policy LQR assumes known dynamics
@@ -117,7 +117,7 @@ class LatentLearner(object):
 
                         # from different initial conditions, drive the robot to a home pose
                         for cond in range(self._conditions):
-                            # print(f'condition_{cond:0>2}')
+                            print(f'condition_{cond:0>2}')
                             cond_grp = h5file.create_group(f'condition_{cond:0>2}')
 
                             init_conds = np.asarray([np.ceil(rad2deg(x)) for x in self.agent._worlds[cond].x0])
@@ -181,7 +181,7 @@ class LatentLearner(object):
 
 def main(argv):
     # del argv
-    FLAGS(sys.argv) # we need to explicitly to tell flags library to parse argv before we can access FLAGS.xxx.
+    FLAGS(sys.argv) 
 
     # set expt seed globally
     random.seed(FLAGS.seed)
@@ -191,8 +191,9 @@ def main(argv):
     hyperparams = importlib.import_module(f'experiments.{FLAGS.experiment}.hyperparams')
 
     config = hyperparams.config
-    # flags.mark_flag_as_required('record_dir', '')
-    FLAGS.record_dir = join(config['common']['data_files_dir']) #, f"{datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M')}")
+    # FLAGS.record_dir = join(config['common']['data_files_dir']) #, f"{datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M')}")
+    FLAGS.record_dir = join(config['common']['traj_samples_dir']) 
+    
     if not os.path.exists( FLAGS.record_dir):
         os.makedirs(FLAGS.record_dir)
 

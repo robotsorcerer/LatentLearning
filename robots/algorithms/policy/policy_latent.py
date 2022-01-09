@@ -5,9 +5,6 @@ import random
 import numpy as np
 from algorithms.policy.policy import Policy
 
-
-# some useful classes from Alex et. al.
-
 import logging
 logger = logging.getLogger(__name__)
 

@@ -6,10 +6,10 @@ import copy
 import h5py
 import numpy as np
 from agents.agent import Agent
-from samples.sample import Sample
 from os.path import join, expanduser
-from agents.config import AGENT_BOX2D
 from agents.agent_utils import generate_noise, setup
+from agents.config import AGENT_BOX2D
+from samples.sample import Sample
 from algorithms.policy.policy_lqr import PolicyLQR
 
 import logging
@@ -35,10 +35,12 @@ class AgentBox2D(Agent):
                           self._hyperparams["target_state"],
                           self._hyperparams["render"],
                           self._hyperparams["integrator"])
+        # print('here we are')
         self.counter = 0  # use this for early stopping during data collection
         self.recorded_states = np.asarray([['filename', 'joint_angle', 'joint_velocities', \
                                             "end_effector_points", "joint angle controls"]])
         self.save_dir = config['save_dir']
+        # print(f'self.save_dir: {self.save_dir}')
         
     def _setup_conditions(self):
         """
@@ -66,6 +68,8 @@ class AgentBox2D(Agent):
         # self.h5dumps = [h5py.File(fname, 'a') for fname in fnames]
 
     def reset(self, condition):
+        # self.T = T
+        # self._worlds[condition] = 
         self.counter = 0
 
     def sample(self, sample_grp, policy, condition, verbose=False, save=True, noisy=True):
@@ -93,7 +97,6 @@ class AgentBox2D(Agent):
         self._worlds[condition].run()
         self._worlds[condition].reset_world()
         b2d_X = self._worlds[condition].get_state()
-
         new_sample = self._init_sample(b2d_X)
         U = np.zeros([self.T, self.dU])        
         if noisy:
@@ -120,7 +123,10 @@ class AgentBox2D(Agent):
                         break            
             self._worlds[condition].save_iter(sample_grp, t)
             
+            # print(t, X_t)
         new_sample.set('ACTION', U)
+        # new_sample._X[t+1,:][:self.dU]  = self._worlds[condition].integrator(X_t[:self.dU])
+        # print('finished setting dU')
 
         if save:
             self._samples[condition].append(new_sample)
