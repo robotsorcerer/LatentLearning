@@ -66,8 +66,6 @@ class AgentBox2D(Agent):
         # self.h5dumps = [h5py.File(fname, 'a') for fname in fnames]
 
     def reset(self, condition):
-        # self.T = T
-        # self._worlds[condition] = 
         self.counter = 0
 
     def sample(self, sample_grp, policy, condition, verbose=False, save=True, noisy=True):
@@ -108,7 +106,6 @@ class AgentBox2D(Agent):
             U[t, :] = policy[condition].act(X_t, obs_t, t, noise)
             if (t+1) < self.T:
                 for _ in range(self._hyperparams['substeps']):
-                    # print('got here')
                     self._worlds[condition].run_next(U[t, :])
                 b2d_X = self._worlds[condition].get_state()
                 self._set_sample(new_sample, b2d_X, t)
@@ -123,10 +120,7 @@ class AgentBox2D(Agent):
                         break            
             self._worlds[condition].save_iter(sample_grp, t)
             
-            # print(t, X_t)
         new_sample.set('ACTION', U)
-        # new_sample._X[t+1,:][:self.dU]  = self._worlds[condition].integrator(X_t[:self.dU])
-        # print('finished setting dU')
 
         if save:
             self._samples[condition].append(new_sample)
