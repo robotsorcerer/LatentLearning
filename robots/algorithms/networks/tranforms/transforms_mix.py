@@ -1,15 +1,15 @@
 # Ripped off: https://github.com/anniesch/dvd/blob/main/train.py
-__all__ = ["ComposeMix", "RandomCrop", "RandomRotation", \
-            "Scale", "RandomHorizontalFlip", \
-            "RandomReverseTime", "UnNormalize"]
+__all__ = ["ComposeMix", "RandomCropVideo", "RandomRotationVideo", \
+            "Scale", "RandomHorizontalFlipVideo", \
+            "RandomReverseTimeVideo", "UnNormalize"]
 
 import torch
-import random
 import numpy as np
 import numbers
 import collections
 import random
 import cv2
+
 
 class ComposeMix(object):
     r"""Composes several transforms together. It takes a list of
@@ -33,14 +33,14 @@ class ComposeMix(object):
         self.transforms = transforms
 
     def __call__(self, imgs):
+        temps = [np.nan for i in range(len(imgs))]
         for transform in self.transforms:
-            this_img = []
             for idx, img in enumerate(imgs):
-                this_img.append(transform(img))
-            imgs = this_img
-        return imgs
+                temps[idx] = transform(img)
+        return np.asarray(temps)
 
-class RandomCrop(object):
+
+class RandomCropVideo(object):
     r"""Crop the given video frames at a random location. Crop location is the
     same for all the frames.
     Args:
@@ -85,7 +85,8 @@ class RandomCrop(object):
             temps[idx] = img_crop
         return np.asarray(temps)
 
-class RandomRotation(object):
+
+class RandomRotationVideo(object):
     """Rotate the given video frames randomly with a given degree.
     Args:
         degree (float): degrees used to rotate the video
@@ -113,6 +114,7 @@ class RandomRotation(object):
     def __repr__(self):
         return self.__class__.__name__ + '(degree={})'.format(self.self.degree)
 
+
 class Scale(object):
     r"""Rescale the input image to the given size.
     Args:
@@ -124,6 +126,7 @@ class Scale(object):
         interpolation (int, optional): Desired interpolation. Default is
             ``cv2.INTER_LINEAR``
     """
+
     def __init__(self, size, interpolation=cv2.INTER_LINEAR):
         assert isinstance(size, int) or (isinstance(
             size, collections.Iterable) and len(size) == 2)
@@ -137,11 +140,29 @@ class Scale(object):
         Returns:
             numpy.array: Rescaled image.
         """
-        assert isinstance(self.size, tuple), 'size must be a tuple.'
-        
-        return cv2.resize(img, tuple(self.size))
+        if isinstance(self.size, int):
+            h, w = img.shape[:2]
+            if (w <= h and w == self.size) or (h <= w and h == self.size):
+                return img
+            if w < h:
+                ow = self.size
+                oh = int(self.size * h / w)
+                if ow < w:
+                    return cv2.resize(img, (ow, oh), cv2.INTER_AREA)
+                else:
+                    return cv2.resize(img, (ow, oh))
+            else:
+                oh = self.size
+                ow = int(self.size * w / h)
+                if oh < h:
+                    return cv2.resize(img, (ow, oh), cv2.INTER_AREA)
+                else:
+                    return cv2.resize(img, (ow, oh))
+        else:
+            return cv2.resize(img, tuple(self.size))
 
-class RandomHorizontalFlip(object):
+
+class RandomHorizontalFlipVideo(object):
     """Horizontally flip the given video frames randomly with a given probability.
     Args:
         p (float): probability of the image being flipped. Default value is 0.5
@@ -164,8 +185,8 @@ class RandomHorizontalFlip(object):
 
     def __repr__(self):
         return self.__class__.__name__ + '(p={})'.format(self.p)
-    
-class RandomReverseTime(object):
+
+class RandomReverseTimeVideo(object):
     """Reverse the given video frames in time randomly with a given probability.
     Args:
         p (float): probability of the image being flipped. Default value is 0.5
@@ -187,7 +208,7 @@ class RandomReverseTime(object):
 
     def __repr__(self):
         return self.__class__.__name__ + '(p={})'.format(self.p)
-    
+
 class UnNormalize(object):
     """Unnormalize an tensor image with mean and standard deviation.
     Given mean: (R, G, B) and std: (R, G, B),

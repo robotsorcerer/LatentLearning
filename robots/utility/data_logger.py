@@ -78,21 +78,6 @@ class DataLogger(object):
                 df.visititems(see)
             for keys, values in df.items():
                 for sample_keys, sample_values in df[keys].items():
-                    # for var_keys, var_vals in df[f"{keys}/{sample_keys}"].items():
-                    #     if 'OBSERVATIONS' in var_keys:
-                    #         obs = df[f"{keys}/{sample_keys}/{var_keys}"]
-                    #         obs = np.asarray(obs, obs.dtype)
-                    #         observs.append(obs)
-                    #         if verbose:
-                    #             print(keys, sample_keys, var_keys, df[f"{keys}/{sample_keys}/{var_keys}"])
-                    #     elif 'END_EFFECTOR_POINTS' in var_keys:
-                    #         ee_pt = df[f"{keys}/{sample_keys}/{var_keys}"]
-                    #         ee_pt = list(ee_pt)
-                    #         observs.append(obs)
-                    #         eef_pts.append(np.asarray())
-                    #         #help(var_vals)
-                    #         # var_vals.read_direct(dest, source_sel=None, dest_sel=None)
-                    #         print(keys, sample_keys, var_keys, df[f"{keys}/{sample_keys}"])
                     for i in range(T): # length of episode
                         obs  = np.asarray(df[f"{keys}/{sample_keys}/OBSERVATIONS_{i:0>3}"])
                         eept = list(df[f"{keys}/{sample_keys}/END_EFFECTOR_POINTS_{i:0>3}"])
