@@ -8,13 +8,15 @@ __status__ 		= "Testing"
 __date__ 		= "Nov. 2021 -- January 2022"
 
 import time
-from datetime import datetime
+import torch
 import random
 import sys, os
 import logging
 import argparse
 import importlib
 import numpy as np
+from datetime import datetime
+from argparse import ArgumentParser
 from absl import flags, app
 
 # agent, its dynamics, and its poldocicies
@@ -26,8 +28,9 @@ from algorithms.algorithm_traj_opt import AlgorithmTrajOpt
 
 # Dynamics for transitions
 from algorithms.dynamics import Buffer
-
 from utility import *
+from dvq_vae.vqvae import *
+import pytorch_lightning as pl
 
 # append Dipendra and Alex's code paths
 sys.path.append('../')
@@ -36,12 +39,27 @@ flags.DEFINE_string('experiment', 'inverted_pendulum', 'experiment name') #defau
 flags.DEFINE_string('record_dir', '', 'Where to dump the images.')
 flags.DEFINE_boolean('quit', True, 'quit GUI automatically when finished')
 flags.DEFINE_boolean('silent', False, 'silent or verbose')
+flags.DEFINE_string('mode', 'train_vqvae', ' Train VQ VAE model.')
 flags.DEFINE_string('controller_type', 'analytic', 'analytic|learned >>  Run analytic/gmm-clf/prob movement primitives.')
 flags.DEFINE_boolean('record', True, 'record observations if generating trajs')
 flags.DEFINE_boolean('save', True, 'save trajectory samples?')
 flags.DEFINE_integer('start_itr', 0, 'iteration to start the simulation.')
 flags.DEFINE_integer('stop_itr', 1, 'iteration to stop the simulation.')
 flags.DEFINE_integer('seed', 123, 'system random seed')
+flags.DEFINE_integer('gpu', 0, 'which gpu to use')
+flags.DEFINE_integer('j', 2, 'system random seed')
+flags.DEFINE_float('gamma', .7, 'gammad')
+flags.DEFINE_integer('batch_size', 128, 'training batch size')
+flags.DEFINE_integer('num_workers', 8, 'number of workers')
+
+args = Bundle(dict(
+                seed=123, NSamples=5000,  gpu=0, j=2, gamma=0.7,
+                batch_size=10, test_batch_size=2,  lr=1e-3,
+                weight_decay=1e-4,  momentum=.9,
+                num_epochs=50, best_loss=float("inf"), NRounds=200,
+                loop_len=100, resume=False, use_lbfgs=False,
+                log_interval=10, use_cuda=torch.cuda.is_available(),
+            ))
 
 FLAGS = flags.FLAGS
 
@@ -98,81 +116,112 @@ class LatentLearner(object):
         stop_itr = FLAGS.stop_itr if (FLAGS.stop_itr is not self._hyperparams['iterations']) else self._hyperparams['iterations']
 
         try:
-            if strcmp(self.controller_type,'analytic'):
-                from algorithms.policy.policy_lqr import PolicyLQR
-                "use lqr to compute a feedback linearizable controller."
-                self._hyperparams['agent']['T'] = int(1e6)
-                import h5py
+            if strcmp(self.FLAGS.mode, 'train_vqvae'):
+                pl.seed_everything(self.FLAGS.seed)
+                # -------------------------------------------------------------------------
+                # arguments...
+                parser = ArgumentParser()
+                # training related
+                parser = pl.Trainer.add_argparse_args(parser)
+                # model related
+                parser = VQVAE.add_model_specific_args(parser)
+                # dataloader related
+                parser.add_argument("--data_dir", type=str, default='/opt/invpend')
+                parser.add_argument("--batch_size", type=int, default=128)
+                parser.add_argument("--num_workers", type=int, default=8)
+                # done!
+                args = parser.parse_args()
 
-                # policy LQR assumes known dynamics
-                pol = [PolicyLQR(self.agent._worlds[cond]) for cond in self._train_idx]
-                for itr in range(start_itr, stop_itr):
-                    # filename for all states, actions and observatins in this episode
-                    fname = join(FLAGS.record_dir, f"iter_{itr}.hdf5")
-                    os.remove(fname) if os.path.exists(fname) else None
+                data = InvertedPendulumData(args)
+                model = VQVAE(args)
 
-                    logger.info(f"Running LQR Controller on iteration {itr}/{self._hyperparams['iterations']}")
+                # annealing schedules for lots of constants
+                callbacks = []
+                callbacks.append(ModelCheckpoint(monitor='val_recon_loss', mode='min'))
+                callbacks.append(DecayLR())
+                if args.vq_flavor == 'gumbel':
+                   callbacks.extend([DecayTemperature(), RampBeta()])
+                trainer = pl.Trainer.from_argparse_args(args, callbacks=callbacks, max_steps=3000000)
+                print('callbacks: ', callbacks)
 
-                    with h5py.File(fname, 'a') as h5file:
+                trainer.fit(model, data)
 
-                        # from different initial conditions, drive the robot to a home pose
-                        for cond in range(self._conditions):
-                            print(f'condition_{cond:0>2}')
-                            cond_grp = h5file.create_group(f'condition_{cond:0>2}')
+            else: # run data collection of control from latent space
+                if strcmp(self.controller_type,'analytic'):
+                    from algorithms.policy.policy_lqr import PolicyLQR
+                    "use lqr to compute a feedback linearizable controller."
+                    self._hyperparams['agent']['T'] = int(1e6)
+                    import h5py
 
-                            init_conds = np.asarray([np.ceil(rad2deg(x)) for x in self.agent._worlds[cond].x0])
-                            init_conds = init_conds[np.nonzero(init_conds)]
+                    # policy LQR assumes known dynamics
+                    pol = [PolicyLQR(self.agent._worlds[cond]) for cond in self._train_idx]
+                    for itr in range(start_itr, stop_itr):
+                        # filename for all states, actions and observatins in this episode
+                        fname = join(FLAGS.record_dir, f"iter_{itr}.hdf5")
+                        os.remove(fname) if os.path.exists(fname) else None
 
-                            logger.info(f'Joint angle(s) for this initial condition (degree): {init_conds[:-1]}')
-                            '''
-                                Apply the feedback controller about the linearized equilibrium at
-                                the vertical.
-                            '''
+                        logger.info(f"Running LQR Controller on iteration {itr}/{self._hyperparams['iterations']}")
 
-                            for sample_idx in range(self._hyperparams['num_samples']):
-                                sample_grp = cond_grp.create_group(f"sample_{sample_idx:0>2}")
-                                self._take_sample(sample_grp, pol, cond, sample_idx)
-                                del sample_grp
+                        with h5py.File(fname, 'a') as h5file:
 
-                    trajectory_samples = [
-                                            self.agent.get_samples(cond, -self._hyperparams['num_samples'])
-                                            for cond in self._train_idx
-                                            ]
+                            # from different initial conditions, drive the robot to a home pose
+                            for cond in range(self._conditions):
+                                print(f'condition_{cond:0>2}')
+                                cond_grp = h5file.create_group(f'condition_{cond:0>2}')
 
-                    # Clear agent samples.
-                    self.agent.clear_samples()
-                    self.agent.reset(cond)
+                                init_conds = np.asarray([np.ceil(rad2deg(x)) for x in self.agent._worlds[cond].x0])
+                                init_conds = init_conds[np.nonzero(init_conds)]
 
-                # run your latent state shenanigans here
-                self._take_iteration(trajectory_samples)
+                                logger.info(f'Joint angle(s) for this initial condition (degree): {init_conds[:-1]}')
+                                '''
+                                    Apply the feedback controller about the linearized equilibrium at
+                                    the vertical.
+                                '''
 
-            elif strcmp(self.controller_type, 'learned'):
+                                for sample_idx in range(self._hyperparams['num_samples']):
+                                    sample_grp = cond_grp.create_group(f"sample_{sample_idx:0>2}")
+                                    self._take_sample(sample_grp, pol, cond, sample_idx)
+                                    del sample_grp
 
-                buffer = Buffer(self.agent.T, self.agent.dX, self.agent.dO, self.agent.dU)
-                pol = [PolicyLatent(self._hyperparams['algorithm']['latent_policy'], self.agent) for cond in self._train_idx]
-                for itr in range(start_itr, stop_itr):
-                    logger.info(f"Running Latent States Learner on iteration {itr}/{self._hyperparams['iterations']}")
-                    for cond in range(self._conditions):
-                        logger.info(f'Gathering trajectory samples from initial condition: {rad2deg(self.agent._worlds[cond].x0.take(0)):.0f}')
-                        for sample_idx in range(self._hyperparams['num_samples']):
-                            self._take_sample(pol, cond, sample_idx)
-
-                    trajectory_samples = [
-                                          self.agent.get_samples(cond, -self._hyperparams['num_samples'])
+                        trajectory_samples = [
+                                                self.agent.get_samples(cond, -self._hyperparams['num_samples'])
                                                 for cond in self._train_idx
-                                        ]
-                    fname = join(FLAGS.record_dir, f"sample_{itr}.pkl")
+                                                ]
 
-                    if FLAGS.save:
-                        self.datalogger.pickle(fname, trajectory_samples)
-                    # Clear agent samples.
-                    self.agent.clear_samples()
+                        # Clear agent samples.
+                        self.agent.clear_samples()
+                        self.agent.reset(cond)
 
-                    # take an algo iteration
+                    # run your latent state shenanigans here
+                    self._take_iteration(trajectory_samples)
+
+                elif strcmp(self.controller_type, 'learned'):
+
+                    buffer = Buffer(self.agent.T, self.agent.dX, self.agent.dO, self.agent.dU)
+                    pol = [PolicyLatent(self._hyperparams['algorithm']['latent_policy'], self.agent) for cond in self._train_idx]
+                    for itr in range(start_itr, stop_itr):
+                        logger.info(f"Running Latent States Learner on iteration {itr}/{self._hyperparams['iterations']}")
+                        for cond in range(self._conditions):
+                            logger.info(f'Gathering trajectory samples from initial condition: {rad2deg(self.agent._worlds[cond].x0.take(0)):.0f}')
+                            for sample_idx in range(self._hyperparams['num_samples']):
+                                self._take_sample(pol, cond, sample_idx)
+
+                        trajectory_samples = [
+                                              self.agent.get_samples(cond, -self._hyperparams['num_samples'])
+                                                    for cond in self._train_idx
+                                            ]
+                        fname = join(FLAGS.record_dir, f"sample_{itr}.pkl")
+
+                        if FLAGS.save:
+                            self.datalogger.pickle(fname, trajectory_samples)
+                        # Clear agent samples.
+                        self.agent.clear_samples()
+
+                        # take an algo iteration
+                        # self._take_iteration(itr, trajectory_samples)
                     # self._take_iteration(itr, trajectory_samples)
-                # self._take_iteration(itr, trajectory_samples)
-            else:
-                raise ValueError('Unknown experiment type.')
+                else:
+                    raise ValueError('Unknown experiment type.')
 
         except Exception as e:
             raise ValueError(f'exception occurred {e}')
@@ -181,7 +230,7 @@ class LatentLearner(object):
 
 def main(argv):
     # del argv
-    FLAGS(sys.argv) 
+    FLAGS(sys.argv)
 
     # set expt seed globally
     random.seed(FLAGS.seed)
@@ -192,8 +241,8 @@ def main(argv):
 
     config = hyperparams.config
     # FLAGS.record_dir = join(config['common']['data_files_dir']) #, f"{datetime.strftime(datetime.now(), '%m-%d-%y_%H-%M')}")
-    FLAGS.record_dir = join(config['common']['traj_samples_dir']) 
-    
+    FLAGS.record_dir = join(config['common']['traj_samples_dir'])
+
     if not os.path.exists( FLAGS.record_dir):
         os.makedirs(FLAGS.record_dir)
 

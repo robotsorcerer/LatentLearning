@@ -7,6 +7,8 @@
 
 These codes are useful for generating the experiments described in paper <such and such> by <such and such>. These experiments are the robot simulation testbeds  for learning  <such and such> policies.
 
+- Everything after a `$` is entered on a terminal, everything after `>>>` is passed to a Python interpreter.
+
 The steps below are boilerplates to see how a local control law is applied to joints in order to realize a home positioning of the arm.
 
 ### BOX2D Prerequisites
@@ -24,13 +26,16 @@ The steps below are boilerplates to see how a local control law is applied to jo
           $ sudo python setup.py install
       ```
 
-In addition, we will install other ad-hoc dependencies via pip as follows:
++ In addition, we will install other ad-hoc dependencies via pip as follows:
 
     + ```pip install -r requirements```
 
+
+#### RUNNING
+
 + To run for the [double_pendulum]() experiment, change this line in [main.py](https://github.com/robotsorcerer/LatentLearning/blob/delldevs/robots/main.py#L35) to `double_pendulum`. For some reason, pygame's default options keeps overriding absl-py's FLAGS. So we'll have to resort to manual overrides for now.
 
-Be sure to follow the style of the hyperparams file for the [inverted_pendulum](https://github.com/robotsorcerer/LatentLearning/blob/delldevs/robots/experiments/double_pendulum/hyperparams.py) in order to have reasonable controls.
++ Be sure to follow the style of the hyperparams file for the [inverted_pendulum](https://github.com/robotsorcerer/LatentLearning/blob/delldevs/robots/experiments/double_pendulum/hyperparams.py) in order to have reasonable controls.
 
 Run like so for data collection:
 
