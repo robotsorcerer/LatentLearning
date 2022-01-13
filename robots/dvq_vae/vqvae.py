@@ -137,7 +137,6 @@ class VQVAE(pl.LightningModule):
         parser.add_argument("--num_embeddings", type=int, default=512, help="vocabulary size; number of possible discrete states")
         parser.add_argument("--embedding_dim", type=int, default=64, help="size of the vector of the embedding of each discrete token")
         parser.add_argument("--n_hid", type=int, default=64, help="number of channels controlling the size of the model")
-        parser.add_argument("--gpus", type=int, default=1, help="number of gpus.")
 
         return parser
 

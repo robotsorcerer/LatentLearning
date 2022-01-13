@@ -16,7 +16,6 @@ import argparse
 import importlib
 import numpy as np
 from datetime import datetime
-from argparse import ArgumentParser
 from absl import flags, app
 
 # agent, its dynamics, and its poldocicies
@@ -29,8 +28,6 @@ from algorithms.algorithm_traj_opt import AlgorithmTrajOpt
 # Dynamics for transitions
 from algorithms.dynamics import Buffer
 from utility import *
-from dvq_vae.vqvae import *
-import pytorch_lightning as pl
 
 # append Dipendra and Alex's code paths
 sys.path.append('../')
@@ -45,12 +42,6 @@ flags.DEFINE_boolean('record', True, 'record observations if generating trajs')
 flags.DEFINE_boolean('save', True, 'save trajectory samples?')
 flags.DEFINE_integer('start_itr', 0, 'iteration to start the simulation.')
 flags.DEFINE_integer('stop_itr', 1, 'iteration to stop the simulation.')
-flags.DEFINE_integer('seed', 123, 'system random seed')
-flags.DEFINE_integer('gpu', 0, 'which gpu to use')
-flags.DEFINE_integer('j', 2, 'system random seed')
-flags.DEFINE_float('gamma', .7, 'gammad')
-flags.DEFINE_integer('batch_size', 128, 'training batch size')
-flags.DEFINE_integer('num_workers', 8, 'number of workers')
 
 args = Bundle(dict(
                 seed=123, NSamples=5000,  gpu=0, j=2, gamma=0.7,
@@ -116,84 +107,53 @@ class LatentLearner(object):
         stop_itr = FLAGS.stop_itr if (FLAGS.stop_itr is not self._hyperparams['iterations']) else self._hyperparams['iterations']
 
         try:
-            if strcmp(self.FLAGS.mode, 'train_vqvae'):
-                pl.seed_everything(self.FLAGS.seed)
-                # -------------------------------------------------------------------------
-                # arguments...
-                parser = ArgumentParser()
-                # training related
-                parser = pl.Trainer.add_argparse_args(parser)
-                # model related
-                parser = VQVAE.add_model_specific_args(parser)
-                # dataloader related
-                parser.add_argument("--data_dir", type=str, default='/opt/invpend')
-                parser.add_argument("--batch_size", type=int, default=128)
-                parser.add_argument("--num_workers", type=int, default=8)
-                # done!
-                args = parser.parse_args()
+            if strcmp(self.controller_type,'analytic'):
+                from algorithms.policy.policy_lqr import PolicyLQR
+                "use lqr to compute a feedback linearizable controller."
+                self._hyperparams['agent']['T'] = int(1e6)
+                import h5py
 
-                data = InvertedPendulumData(args)
-                model = VQVAE(args)
+                # policy LQR assumes known dynamics
+                pol = [PolicyLQR(self.agent._worlds[cond]) for cond in self._train_idx]
+                for itr in range(start_itr, stop_itr):
+                    # filename for all states, actions and observatins in this episode
+                    fname = join(FLAGS.record_dir, f"iter_{itr}.hdf5")
+                    os.remove(fname) if os.path.exists(fname) else None
 
-                # annealing schedules for lots of constants
-                callbacks = []
-                callbacks.append(ModelCheckpoint(monitor='val_recon_loss', mode='min'))
-                callbacks.append(DecayLR())
-                if args.vq_flavor == 'gumbel':
-                   callbacks.extend([DecayTemperature(), RampBeta()])
-                trainer = pl.Trainer.from_argparse_args(args, callbacks=callbacks, max_steps=3000000)
-                print('callbacks: ', callbacks)
+                    logger.info(f"Running LQR Controller on iteration {itr}/{self._hyperparams['iterations']}")
 
-                trainer.fit(model, data)
+                    with h5py.File(fname, 'a') as h5file:
 
-            else: # run data collection of control from latent space
-                if strcmp(self.controller_type,'analytic'):
-                    from algorithms.policy.policy_lqr import PolicyLQR
-                    "use lqr to compute a feedback linearizable controller."
-                    self._hyperparams['agent']['T'] = int(1e6)
-                    import h5py
+                        # from different initial conditions, drive the robot to a home pose
+                        for cond in range(self._conditions):
+                            print(f'condition_{cond:0>2}')
+                            cond_grp = h5file.create_group(f'condition_{cond:0>2}')
 
-                    # policy LQR assumes known dynamics
-                    pol = [PolicyLQR(self.agent._worlds[cond]) for cond in self._train_idx]
-                    for itr in range(start_itr, stop_itr):
-                        # filename for all states, actions and observatins in this episode
-                        fname = join(FLAGS.record_dir, f"iter_{itr}.hdf5")
-                        os.remove(fname) if os.path.exists(fname) else None
+                            init_conds = np.asarray([np.ceil(rad2deg(x)) for x in self.agent._worlds[cond].x0])
+                            init_conds = init_conds[np.nonzero(init_conds)]
 
-                        logger.info(f"Running LQR Controller on iteration {itr}/{self._hyperparams['iterations']}")
+                            logger.info(f'Joint angle(s) for this initial condition (degree): {init_conds[:-1]}')
+                            '''
+                                Apply the feedback controller about the linearized equilibrium at
+                                the vertical.
+                            '''
 
-                        with h5py.File(fname, 'a') as h5file:
+                            for sample_idx in range(self._hyperparams['num_samples']):
+                                sample_grp = cond_grp.create_group(f"sample_{sample_idx:0>2}")
+                                self._take_sample(sample_grp, pol, cond, sample_idx)
+                                del sample_grp
 
-                            # from different initial conditions, drive the robot to a home pose
-                            for cond in range(self._conditions):
-                                print(f'condition_{cond:0>2}')
-                                cond_grp = h5file.create_group(f'condition_{cond:0>2}')
+                    trajectory_samples = [
+                                            self.agent.get_samples(cond, -self._hyperparams['num_samples'])
+                                            for cond in self._train_idx
+                                            ]
 
-                                init_conds = np.asarray([np.ceil(rad2deg(x)) for x in self.agent._worlds[cond].x0])
-                                init_conds = init_conds[np.nonzero(init_conds)]
+                    # Clear agent samples.
+                    self.agent.clear_samples()
+                    self.agent.reset(cond)
 
-                                logger.info(f'Joint angle(s) for this initial condition (degree): {init_conds[:-1]}')
-                                '''
-                                    Apply the feedback controller about the linearized equilibrium at
-                                    the vertical.
-                                '''
-
-                                for sample_idx in range(self._hyperparams['num_samples']):
-                                    sample_grp = cond_grp.create_group(f"sample_{sample_idx:0>2}")
-                                    self._take_sample(sample_grp, pol, cond, sample_idx)
-                                    del sample_grp
-
-                        trajectory_samples = [
-                                                self.agent.get_samples(cond, -self._hyperparams['num_samples'])
-                                                for cond in self._train_idx
-                                                ]
-
-                        # Clear agent samples.
-                        self.agent.clear_samples()
-                        self.agent.reset(cond)
-
-                    # run your latent state shenanigans here
-                    self._take_iteration(trajectory_samples)
+                # run your latent state shenanigans here
+                self._take_iteration(trajectory_samples)
 
                 elif strcmp(self.controller_type, 'learned'):
 

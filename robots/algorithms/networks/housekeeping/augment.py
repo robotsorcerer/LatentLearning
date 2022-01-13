@@ -6,7 +6,6 @@ import h5py
 import copy 
 import torch 
 import random
-import pygame
 import argparse 
 import logging
 import numpy as np
