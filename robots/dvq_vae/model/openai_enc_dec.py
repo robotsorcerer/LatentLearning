@@ -17,6 +17,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+torch.set_default_tensor_type(torch.DoubleTensor)
 
 # -----------------------------------------------------------------------------
 
@@ -112,7 +113,8 @@ class OpenAIEncoder(nn.Module):
         if x.shape[1] != self.input_channels:
             raise ValueError(f'input has {x.shape[1]} channels but model built for {self.input_channels}')
         if x.dtype != torch.float32:
-            raise ValueError('input must have dtype torch.float32')
+            x = x.float()
+            # raise ValueError('input must have dtype torch.float32')
 
         return self.blocks(x)
 

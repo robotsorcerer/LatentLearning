@@ -136,11 +136,8 @@ class GMM(object):
             self.fail = False
 
             for i in range(K):
-                # print('sigma i ', self.sigma[i].shape, np.eye(self.sigma[i].shape[-1]).shape)
-                # print('eta: ', self.eta)
                 self.sigma[i] += self.eta * np.eye(self.sigma[i].shape[-1])
                 mu, sigma = self.mu[i], self.sigma[i]
-                # logger.debug('sigma: {}\n'.format(sigma))
                 try:
                     L = scipy.linalg.cholesky(sigma, lower=True)
                 except LinAlgError as e:

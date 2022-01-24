@@ -8,8 +8,7 @@ to backpropagate through the sampling process.
 import torch
 from torch import nn, einsum
 import torch.nn.functional as F
-
-from scipy.cluster.vq import kmeans2
+from scipy.cluster.vq import kmeans, kmeans2
 
 # -----------------------------------------------------------------------------
 
@@ -30,7 +29,7 @@ class VQVAEQuantize(nn.Module):
 
         self.kld_scale = 10.0
 
-        self.proj = nn.Conv2d(num_hiddens, embedding_dim, 1)
+        self.proj  = nn.Conv2d(num_hiddens, embedding_dim, 1)
         self.embed = nn.Embedding(n_embed, embedding_dim)
 
         self.register_buffer('data_initialized', torch.zeros(1))
@@ -43,14 +42,14 @@ class VQVAEQuantize(nn.Module):
         z_e = z_e.permute(0, 2, 3, 1) # make (B, H, W, C)
         flatten = z_e.reshape(-1, self.embedding_dim)
 
-        # DeepMind def does not do this but I find I have to... ;\
+        # DeepMind def does not do this but I find I have to... ;
         if self.training and self.data_initialized.item() == 0:
             print('running kmeans!!') # data driven initialization for the embeddings
-            rp = torch.randperm(flatten.size(0))
-            kd = kmeans2(flatten[rp[:20000]].data.cpu().numpy(), self.n_embed, minit='points')
-            self.embed.weight.data.copy_(torch.from_numpy(kd[0]))
+            k = flatten.size(0)
+            rp = torch.randperm(k)
+            centroids, labels = kmeans2(flatten[rp[:k//2]].data.cpu().numpy(), self.n_embed, minit='++')
+            self.embed.weight.data.copy_(torch.from_numpy(centroids))
             self.data_initialized.fill_(1)
-            # TODO: this won't work in multi-GPU setups
 
         dist = (
             flatten.pow(2).sum(1, keepdim=True)
@@ -88,7 +87,7 @@ class GumbelQuantize(nn.Module):
 
         self.straight_through = straight_through
         self.temperature = 1.0
-        self.kld_scale = 5e-4
+        self.kld_scale = 1e-1 #5e-4
 
         self.proj = nn.Conv2d(num_hiddens, n_embed, 1)
         self.embed = nn.Embedding(n_embed, embedding_dim)
