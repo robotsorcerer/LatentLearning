@@ -1,5 +1,5 @@
 robots/experiments/inverted_pendulum/data_files
 robots/experiments/double_pendulum/data_files
 robots/experiments/double_integrator/data_files
-
+robots/lightning_logs/
 
